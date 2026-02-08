@@ -33,31 +33,20 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // Build Mistral prompt from messages
-    const prompt = buildMistralPromptFromMessages(messages);
-
-    // Call Hugging Face Inference API (using serverless endpoint)
-    const response = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2', {
+    // Call Hugging Face Router API (new v1 OpenAI-compatible endpoint)
+    const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-        'x-wait-for-model': 'true'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 512,
-          temperature: 0.7,
-          top_p: 0.9,
-          repetition_penalty: 1.15,
-          do_sample: true,
-          return_full_text: false
-        },
-        options: {
-          use_cache: false,
-          wait_for_model: true
-        }
+        model: 'mistralai/Mistral-7B-Instruct-v0.2',
+        messages: messages,
+        max_tokens: 500,
+        temperature: 0.7,
+        top_p: 0.95,
+        stream: false
       })
     });
 
@@ -72,18 +61,15 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // Extract AI response
+    // Extract AI response (OpenAI-compatible format)
     let aiText = '';
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      aiText = data[0].generated_text;
-    } else if (data.generated_text) {
-      aiText = data.generated_text;
+    if (data.choices && data.choices[0]?.message?.content) {
+      aiText = data.choices[0].message.content;
+    } else if (data.message) {
+      aiText = data.message;
     } else if (typeof data === 'string') {
       aiText = data;
     }
-
-    // Clean response
-    aiText = aiText.replace(/\[INST\]|\[\/INST\]/g, '').trim();
 
     return res.status(200).json({
       success: true,
@@ -98,25 +84,4 @@ export default async function handler(req, res) {
       message: error.message 
     });
   }
-}
-
-// Build Mistral instruction prompt from messages array
-function buildMistralPromptFromMessages(messages) {
-  // First message should be system prompt
-  let conversation = '<s>[INST] ';
-  
-  messages.forEach((msg, index) => {
-    if (msg.role === 'system') {
-      conversation += `${msg.content}\n\n`;
-    } else if (msg.role === 'user') {
-      if (index > 0) conversation += '\n\nStudent: ';
-      conversation += msg.content;
-    } else if (msg.role === 'assistant') {
-      conversation += ' [/INST]\n\n' + msg.content + '\n\n<s>[INST] ';
-    }
-  });
-  
-  conversation += ' [/INST]';
-  
-  return conversation;
 }
