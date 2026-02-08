@@ -36,12 +36,13 @@ export default async function handler(req, res) {
     // Build Mistral prompt from messages
     const prompt = buildMistralPromptFromMessages(messages);
 
-    // Call Hugging Face API (updated to new router endpoint February 2026)
-    const response = await fetch('https://router.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2', {
+    // Call Hugging Face Inference API (using serverless endpoint)
+    const response = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-wait-for-model': 'true'
       },
       body: JSON.stringify({
         inputs: prompt,
