@@ -1,53 +1,266 @@
-# 🚀 Problem Solver Assistant
+# 🚀 Nakung AI - Your Coding Partner
 
-A powerful Chrome extension for competitive programmers and interview preparation. Get AI-powered hints, conduct mock interviews, track your progress, and more!
+<div align="center">
+
+**A revolutionary Chrome extension that transforms LeetCode into an AI-powered learning platform**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/Arunodoy18/Nakung)
+[![Chrome Extension](https://img.shields.io/badge/chrome-extension-brightgreen.svg)](https://chrome.google.com/webstore)
+
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Backend](#-backend-deployment) • [Documentation](#-documentation)
+
+</div>
+
+---
 
 ## ✨ Features
 
-### 🤖 AI-Powered Interview Simulation
-- **Reviewer Mode**: Interactive technical interview with AI-powered follow-up questions
-- **Partner Mode**: Get strategic hints without spoiling the solution
-- Real-time conversation with Hugging Face AI models
-- Fallback to smart predefined responses when offline
+### 🤖 **Embedded AI Assistant**
+- **Floating Button**: Beautiful 🚀 AI button that slides in from the right on any LeetCode problem page
+- **Side Panel Chat**: Sleek embedded chat interface - no popup needed!
+- **Real-time AI**: Powered by **Mistral-7B-Instruct** via HuggingFace API
+- **Two Interaction Modes**:
+  - **🤝 Partner Mode**: Friendly coding mentor who guides you with Socratic questions
+  - **🎯 Reviewer Mode**: FAANG-level technical interviewer who challenges your thinking
 
-### 📊 Progress Tracking
-- **Visual Dashboard**: Track problems solved, streaks, and time spent
-- **Activity Chart**: See your 14-day solving history
-- **Difficulty Breakdown**: Easy, Medium, Hard problem statistics
-- **Recent Problems**: Quick access to your latest attempts
+### 🎨 **Modern UI/UX**
+- **Leeco.ai Inspired Design**: Purple gradient theme with smooth animations
+- **Dark Mode Optimized**: Perfectly styled for LeetCode's dark theme
+- **Auto Problem Detection**: Instantly recognizes the problem you're solving
+- **Conversation History**: Maintains context throughout your coding session
+- **Theme Toggle**: Switch between light/dark modes
 
-### 🔗 Platform Integration
-- **Auto-Detection**: Works on LeetCode, Codeforces, HackerRank
-- **Floating Button**: Quick access while solving problems
-- **Problem Extraction**: Automatically captures problem details
+### 🔗 **Multi-Platform Support**
+- ✅ LeetCode (leetcode.com)
+- ✅ Codeforces (codeforces.com)
+- ✅ HackerRank (hackerrank.com)
+- 🚧 More platforms coming soon!
 
-### 💾 Data Management
-- **Local Storage**: All data stored securely on your device
-- **Export/Import**: Backup and restore your progress
-- **Statistics**: Detailed analytics on your solving patterns
+### 💾 **Smart Features**
+- **Auto Problem Extraction**: Reads problem title, difficulty, description automatically
+- **Context-Aware Responses**: AI knows exactly what problem you're working on
+- **Conversation Persistence**: Save and restore chat history
+- **Settings Panel**: Configure API keys, themes, and preferences
 
-### ⚙️ Customization
-- **AI Configuration**: Use your own Hugging Face API key
-- **Theme Options**: Auto, Light, Dark themes
-- **Notifications**: Optional reminders and achievements
+---
 
 ## 🎯 Installation
 
-1. Clone or download this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode" (top-right toggle)
-4. Click "Load unpacked"
-5. Select the `Nakung` folder
-6. Pin the extension to your toolbar
+### Quick Install (Developer Mode)
 
-## 🔑 Getting Started
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Arunodoy18/Nakung.git
+   cd Nakung
+   ```
 
-### Basic Usage (No Setup Required)
-1. Click the extension icon
-2. Enter a problem number (e.g., "LC-123" or "CF-456A")
-3. Choose:
-   - **💡 Partner**: Get a helpful hint
-   - **🎯 Reviewer**: Start a mock interview
+2. **Load in Chrome**
+   - Open Chrome and navigate to `chrome://extensions/`
+   - Enable **Developer mode** (toggle in top-right)
+   - Click **Load unpacked**
+   - Select the `Nakung` folder
+
+3. **Ready!** 🎉
+   - Go to any LeetCode problem
+   - See the 🚀 AI button appear on the right side
+
+---
+
+## 🚀 Usage
+
+### Getting Started
+### Getting Started
+
+1. **Navigate to a LeetCode problem**
+   - Example: https://leetcode.com/problems/two-sum/
+
+2. **Click the 🚀 AI button** (appears on right side)
+
+3. **Choose your mode**:
+   - **🤝 Partner**: "Let's solve this together!"
+   - **🎯 Reviewer**: "Let's do a mock interview"
+
+4. **Start chatting**:
+   - Ask questions, discuss approaches
+   - AI adapts to your chosen mode
+   - Get hints without spoilers
+
+### Example Conversations
+
+**Partner Mode:**
+```
+You: How should I approach this?
+AI: Great question! Let's break it down. What's the first thing 
+     you notice about the input arrays? Are they sorted? 🤔
+
+You: Yes, they're sorted!
+AI: Exactly! Now, how could we use that property to our advantage? 
+    Think about how you'd merge two decks of cards...
+```
+
+**Reviewer Mode:**
+```
+You: I'm thinking of using two pointers
+AI: Good start. Can you walk me through your approach step by step? 
+    What would be the first step in your algorithm?
+
+You: First, I'd compare elements at both pointers
+AI: And what would be your time complexity with this approach? 
+    How does it compare to a naive solution?
+```
+
+---
+
+## 🏗️ Backend Deployment
+
+The extension uses a **Vercel serverless backend** to handle AI requests securely.
+
+### Backend Architecture
+- **Platform**: Vercel (Node.js serverless)
+- **AI Model**: Mistral-7B-Instruct-v0.2 via HuggingFace Inference API
+- **Endpoint**: `https://nakung-backend.vercel.app/api/chat`
+- **Environment Variables**: `HUGGING_FACE_API_KEY` (stored securely in Vercel)
+
+### Deploy Your Own Backend
+
+1. **Navigate to backend folder**
+   ```bash
+   cd Nakung/backend
+   ```
+
+2. **Install Vercel CLI** (if not installed)
+   ```bash
+   npm install -g vercel
+   ```
+
+3. **Deploy to Vercel**
+   ```bash
+   vercel --prod
+   ```
+
+4. **Set environment variable in Vercel dashboard**
+   - Go to your Vercel project settings
+   - Add: `HUGGING_FACE_API_KEY` = `your_huggingface_api_key`
+   - Get your key from: https://huggingface.co/settings/tokens
+
+5. **Update extension**
+   - Copy your Vercel URL
+   - Edit `background.js` line 9:
+     ```javascript
+     const BACKEND_URL = 'https://your-backend.vercel.app/api/chat';
+     ```
+
+---
+
+## 📁 Project Structure
+
+```
+Nakung/
+├── manifest.json              # Extension configuration
+├── background.js              # Service worker (handles AI requests)
+├── embedded-panel.js          # Floating button & chat panel
+├── embedded-panel.css         # Panel styling
+├── platform-detector.js       # Auto-detect coding platforms
+├── problem-extractor.js       # Extract problem details
+├── popup.html/js/css          # Extension popup UI
+├── settings.html/js/css       # Settings page
+├── icons/                     # Extension icons
+└── backend/
+    ├── api/chat.js           # Vercel serverless function
+    ├── vercel.json           # Vercel configuration
+    └── package.json          # Backend dependencies
+```
+
+---
+
+## 📚 Documentation
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
+- **[DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md)** - Full deployment instructions
+- **[HOW-IT-WORKS.md](HOW-IT-WORKS.md)** - Technical architecture explained
+- **[API_EXAMPLES.md](API_EXAMPLES.md)** - Backend API documentation
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Contributing guidelines
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Frontend** | Vanilla JavaScript, Chrome Extension API (Manifest V3) |
+| **Backend** | Node.js, Vercel Serverless Functions |
+| **AI Model** | Mistral-7B-Instruct-v0.2 (HuggingFace) |
+| **Styling** | CSS3 with CSS Variables, Flexbox/Grid |
+| **Storage** | Chrome Storage API (Local Storage) |
+| **Version Control** | Git, GitHub |
+
+---
+
+## 🔐 Security & Privacy
+
+- ✅ **No data collection**: All conversations stored locally
+- ✅ **Secure API**: HuggingFace API key stored in Vercel environment (never exposed)
+- ✅ **CORS protected**: Backend only accepts requests from extension
+- ✅ **Open source**: Fully transparent codebase
+
+---
+
+## 🚧 Roadmap
+
+- [ ] Chrome Web Store publication
+- [ ] Support for more coding platforms (CodeChef, AtCoder)
+- [ ] Code snippet analysis and review
+- [ ] Voice interaction mode
+- [ ] Multi-language support
+- [ ] Progress analytics dashboard
+- [ ] Team collaboration features
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **HuggingFace** for providing the AI inference API
+- **Mistral AI** for the powerful Mistral-7B-Instruct model
+- **Vercel** for seamless serverless deployment
+- **LeetCode** for the amazing platform
+- **Leeco.ai** for UI/UX inspiration
+
+---
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/Arunodoy18/Nakung/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Arunodoy18/Nakung/discussions)
+- **Email**: arunodoybanerjee@gmail.com
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [Arunodoy Banerjee](https://github.com/Arunodoy18)**
+
+⭐ Star this repo if you find it helpful!
+
+</div>
 
 ### Advanced Usage (With AI)
 1. Get a free Hugging Face API key at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
