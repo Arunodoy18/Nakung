@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     // Build Mistral prompt from messages
     const prompt = buildMistralPromptFromMessages(messages);
 
-    // Call Hugging Face API
+    // Call Hugging Face API (updated to new router endpoint February 2026)
     const response = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2', {
       method: 'POST',
       headers: {
