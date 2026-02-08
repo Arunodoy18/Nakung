@@ -1,53 +1,79 @@
-// Configuration file for the extension
+// ============================================================================
+// NAKUNG AI CONFIGURATION
+// Backend: https://nakung-backend.vercel.app (Groq API + Llama 3.3 70B)
+// ============================================================================
+
 const CONFIG = {
-  // Hugging Face API configuration
-  AI_API: {
-    endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
-    // Users will need to add their own API key in settings
-    defaultModel: 'microsoft/DialoGPT-medium',
+  // Backend API Configuration
+  BACKEND: {
+    url: 'https://nakung-backend.vercel.app/api/chat',
     timeout: 30000, // 30 seconds
-    maxRetries: 3
+    maxRetries: 2
   },
   
   // Storage keys
   STORAGE_KEYS: {
-    SOLUTIONS: 'problemSolutions',
-    PROGRESS: 'userProgress',
+    CURRENT_PROBLEM: 'currentProblem',
+    CHAT_HISTORY: 'chatHistory',
+    CURRENT_MODE: 'currentMode',
     SETTINGS: 'userSettings',
-    STATISTICS: 'userStatistics',
-    TAGS: 'problemTags',
-    API_KEY: 'hfApiKey'
+    LAST_PROBLEM_ID: 'lastProblemId'
   },
   
   // Platform configurations
   PLATFORMS: {
     LEETCODE: {
       name: 'LeetCode',
-      patterns: ['leetcode.com/problems'],
-      problemSelector: '.css-v3d350',
-      titleSelector: '[data-cy="question-title"]'
+      color: '#FFA116',
+      icon: '💻'
     },
     CODEFORCES: {
       name: 'Codeforces',
-      patterns: ['codeforces.com/problemset/problem', 'codeforces.com/contest'],
-      problemSelector: '.problem-statement',
-      titleSelector: '.title'
+      color: '#1F8ACB',
+      icon: '🏆'
     },
     HACKERRANK: {
       name: 'HackerRank',
-      patterns: ['hackerrank.com/challenges'],
-      problemSelector: '.challenge-body',
-      titleSelector: '.challenge-heading'
+      color: '#00EA64',
+      icon: '🎯'
+    },
+    CODECHEF: {
+      name: 'CodeChef',
+      color: '#5B4638',
+      icon: '👨‍🍳'
     }
   },
   
-  // Timer configurations
-  TIMER: {
-    DEFAULT_DURATION: 3600, // 1 hour in seconds
-    WARNING_TIME: 300 // 5 minutes
-  },
-  
-  // Statistics
+  // AI Modes
+  MODES: {
+    PARTNER: {
+      name: 'Partner',
+      description: 'Friendly mentor who guides with hints',
+      icon: '💡',
+      systemPrompt: `You are a friendly coding mentor helping a student solve a programming problem. 
+Your role is to:
+- Guide with Socratic questions, not give direct solutions
+- Provide strategic hints about algorithms, data structures, and patterns
+- Encourage problem-solving thinking
+- Ask clarifying questions about their approach
+- Keep responses concise (2-4 sentences)
+- Be encouraging and supportive`
+    },
+    REVIEWER: {
+      name: 'Reviewer',
+      description: 'FAANG-style technical interviewer',
+      icon: '🎯',
+      systemPrompt: `You are a senior software engineer conducting a technical coding interview.
+Your role is to:
+- Ask probing questions about their approach, time/space complexity
+- Challenge their thinking with edge cases
+- Review code quality and optimization opportunities
+- Simulate a real FAANG interview experience
+- Keep responses professional and concise (2-4 sentences)
+- Focus on understanding their problem-solving process`
+    }
+  }
+};
   DIFFICULTY_LEVELS: ['Easy', 'Medium', 'Hard'],
   
   // Version

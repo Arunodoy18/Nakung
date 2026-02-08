@@ -1,202 +1,143 @@
-// AI Service for Hugging Face API integration
+// ============================================================================
+// NAKUNG AI SERVICE - Groq Backend Integration
+// Calls: https://nakung-backend.vercel.app/api/chat
+// ============================================================================
+
 class AIService {
   constructor() {
-    this.apiKey = null;
     this.conversationHistory = [];
     this.maxHistoryLength = 10;
-    this.isInitialized = false;
+    this.backendUrl = CONFIG.BACKEND.url;
   }
 
-  // Initialize with API key
-  async initialize() {
+  // Generate AI response by calling backend
+  async generateResponse(userMessage, mode = 'partner', problemContext = null) {
     try {
-      const settings = await storageManager.getSettings();
-      this.apiKey = settings.apiKey;
-      this.isInitialized = !!this.apiKey;
-      return this.isInitialized;
-    } catch (error) {
-      console.error('Error initializing AI service:', error);
-      return false;
-    }
-  }
+      // Build messages array for backend
+      const messages = this.buildMessages(userMessage, mode, problemContext);
 
-  // Check if API key is configured
-  hasApiKey() {
-    return this.isInitialized && !!this.apiKey;
-  }
+      console.log('[AI Service] 🚀 Calling backend:', this.backendUrl);
+      console.log('[AI Service] 📤 Messages:', messages);
 
-  // Generate response using Hugging Face
-  async generateResponse(userMessage, context = 'reviewer') {
-    if (!this.hasApiKey()) {
-      return {
-        success: false,
-        error: 'API key not configured. Please add your Hugging Face API key in settings.',
-        useFallback: true
-      };
-    }
+      // Call backend API
+      const response = await fetch(this.backendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messages }),
+        signal: AbortSignal.timeout(CONFIG.BACKEND.timeout)
+      });
 
-    try {
-      // Add user message to history
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[AI Service] ❌ Backend error:', response.status, errorText);
+        throw new Error(`Backend error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('[AI Service] ✅ Response received:', data);
+
+      if (!data.success || !data.message) {
+        throw new Error('Invalid response format from backend');
+      }
+
+      // Store in conversation history
       this.conversationHistory.push({
         role: 'user',
         content: userMessage
       });
-
-      // Build prompt with context
-      const prompt = this.buildPrompt(userMessage, context);
-
-      // Call Hugging Face API
-      const response = await this.callHuggingFaceAPI(prompt);
-
-      if (response.success) {
-        // Add assistant response to history
-        this.conversationHistory.push({
-          role: 'assistant',
-          content: response.text
-        });
-
-        // Trim history if too long
-        if (this.conversationHistory.length > this.maxHistoryLength * 2) {
-          this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength * 2);
-        }
-
-        return {
-          success: true,
-          text: response.text
-        };
-      } else {
-        return {
-          success: false,
-          error: response.error,
-          useFallback: true
-        };
-      }
-    } catch (error) {
-      console.error('Error generating response:', error);
-      return {
-        success: false,
-        error: error.message,
-        useFallback: true
-      };
-    }
-  }
-
-  // Build prompt based on context
-  buildPrompt(userMessage, context) {
-    let systemPrompt = '';
-
-    if (context === 'reviewer') {
-      systemPrompt = `You are a technical interviewer conducting a coding interview. 
-Ask insightful follow-up questions about algorithms, time complexity, space complexity, 
-and optimization. Be encouraging but thorough. Keep responses concise (2-3 sentences).
-
-Previous conversation:
-${this.getRecentHistory()}
-
-User's response: ${userMessage}
-
-Your question as interviewer:`;
-    } else if (context === 'partner') {
-      systemPrompt = `You are a helpful coding mentor providing hints for problem-solving. 
-Give strategic hints without revealing the full solution. Focus on patterns, 
-data structures, and problem-solving approaches. Keep it brief (1-2 sentences).
-
-User's question: ${userMessage}
-
-Your hint:`;
-    }
-
-    return systemPrompt;
-  }
-
-  // Get recent conversation history
-  getRecentHistory() {
-    return this.conversationHistory
-      .slice(-6) // Last 3 exchanges
-      .map(msg => `${msg.role}: ${msg.content}`)
-      .join('\n');
-  }
-
-  // Call Hugging Face API with retry logic
-  async callHuggingFaceAPI(prompt, retries = 0) {
-    try {
-      const response = await fetch(CONFIG.AI_API.endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_length: 150,
-            temperature: 0.7,
-            top_p: 0.9,
-            do_sample: true
-          }
-        })
+      this.conversationHistory.push({
+        role: 'assistant',
+        content: data.message
       });
 
-      if (!response.ok) {
-        if (response.status === 503 && retries < CONFIG.AI_API.maxRetries) {
-          // Model is loading, retry after delay
-          await this.sleep(2000 * (retries + 1));
-          return this.callHuggingFaceAPI(prompt, retries + 1);
-        }
-        
-        const error = await response.text();
-        throw new Error(`API Error: ${response.status} - ${error}`);
+      // Trim history if too long
+      if (this.conversationHistory.length > this.maxHistoryLength * 2) {
+        this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength * 2);
       }
-
-      const data = await response.json();
-      
-      // Extract generated text
-      let text = '';
-      if (Array.isArray(data) && data.length > 0) {
-        text = data[0].generated_text || data[0].text || '';
-      } else if (data.generated_text) {
-        text = data.generated_text;
-      }
-
-      // Clean up the response
-      text = this.cleanResponse(text, prompt);
 
       return {
         success: true,
-        text: text || 'Could you elaborate on that?'
+        text: data.message,
+        model: data.model || 'llama-3.3-70b-versatile'
       };
+
     } catch (error) {
-      console.error('Hugging Face API error:', error);
+      console.error('[AI Service] ❌ Error:', error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        text: this.getFallbackResponse(mode)
       };
     }
   }
 
-  // Clean AI response
-  cleanResponse(text, prompt) {
-    // Remove the original prompt from response
-    if (text.includes(prompt)) {
-      text = text.replace(prompt, '').trim();
+  // Build messages array for backend API
+  buildMessages(userMessage, mode, problemContext) {
+    const messages = [];
+
+    // Add system prompt based on mode
+    const modeConfig = CONFIG.MODES[mode.toUpperCase()];
+    if (modeConfig) {
+      let systemPrompt = modeConfig.systemPrompt;
+      
+      // Add problem context if available
+      if (problemContext) {
+        systemPrompt += `\n\nCurrent Problem Context:
+Problem: ${problemContext.title || 'Unknown'}
+Platform: ${problemContext.platform || 'Unknown'}
+Difficulty: ${problemContext.difficulty || 'Unknown'}`;
+        
+        if (problemContext.description) {
+          // Truncate description to avoid token limits
+          const descPreview = problemContext.description.substring(0, 500);
+          systemPrompt += `\nDescription: ${descPreview}${problemContext.description.length > 500 ? '...' : ''}`;
+        }
+      }
+      
+      messages.push({
+        role: 'system',
+        content: systemPrompt
+      });
     }
 
-    // Remove any "assistant:" or similar prefixes
-    text = text.replace(/^(assistant|interviewer|mentor):\s*/i, '');
+    // Add recent conversation history (last 4 exchanges)
+    const recentHistory = this.conversationHistory.slice(-8);
+    messages.push(...recentHistory);
 
-    // Limit length
-    const sentences = text.split(/[.!?]+/);
-    if (sentences.length > 3) {
-      text = sentences.slice(0, 3).join('. ') + '.';
-    }
+    // Add current user message
+    messages.push({
+      role: 'user',
+      content: userMessage
+    });
 
-    return text.trim();
+    return messages;
   }
 
-  // Helper to sleep
-  sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // Get fallback response if backend fails
+  getFallbackResponse(mode) {
+    const fallbacks = {
+      partner: "I'm here to help! Could you tell me more about your approach to this problem? What algorithms or data structures are you considering?",
+      reviewer: "Interesting. Can you walk me through your thought process? What's the time complexity of your current approach?"
+    };
+    return fallbacks[mode.toLowerCase()] || "Could you elaborate on that?";
   }
+
+  // Clear conversation history (when switching problems or modes)
+  clearHistory() {
+    this.conversationHistory = [];
+    console.log('[AI Service] 🧹 Conversation history cleared');
+  }
+
+  // Get conversation history for display
+  getHistory() {
+    return this.conversationHistory;
+  }
+}
+
+// Create global instance
+const aiService = new AIService();
 
   // Reset conversation
   resetConversation() {
