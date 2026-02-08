@@ -1,0 +1,71 @@
+{
+  "manifest_version": 3,
+  "name": "Nakung AI Assistant",
+  "version": "2.1.0",
+  "description": "AI coding mentor for LeetCode, CodeChef, HackerRank - Partner & Reviewer modes",
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Nakung AI Assistant"
+  },
+  
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": true
+  },
+  
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://nakung-backend.vercel.app/*",
+    "https://leetcode.com/*",
+    "https://www.leetcode.com/*",
+    "https://codeforces.com/*",
+    "https://www.codeforces.com/*",
+    "https://hackerrank.com/*",
+    "https://www.hackerrank.com/*",
+    "https://codechef.com/*",
+    "https://www.codechef.com/*"
+  ],
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://leetcode.com/problems/*",
+        "https://www.leetcode.com/problems/*",
+        "https://codeforces.com/problemset/problem/*",
+        "https://codeforces.com/contest/*/problem/*",
+        "https://www.codeforces.com/problemset/problem/*",
+        "https://www.codeforces.com/contest/*/problem/*",
+        "https://hackerrank.com/challenges/*",
+        "https://www.hackerrank.com/challenges/*",
+        "https://codechef.com/problems/*",
+        "https://www.codechef.com/problems/*",
+        "https://codechef.com/*/problems/*",
+        "https://www.codechef.com/*/problems/*"
+      ],
+      "js": [
+        "platform-detector.js",
+        "problem-extractor.js",
+        "content-script.js",
+        "embedded-panel.js"
+      ],
+      "css": ["embedded-panel.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
