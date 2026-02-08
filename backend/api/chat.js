@@ -33,20 +33,30 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // Call Hugging Face Router API (new v1 OpenAI-compatible endpoint)
-    const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
+    // Use HuggingFace Inference API with a working free model
+    // Convert messages to simple prompt format
+    const prompt = messages.map(m => {
+      if (m.role === 'system') return `System: ${m.content}`;
+      if (m.role === 'user') return `User: ${m.content}`;
+      if (m.role === 'assistant') return `Assistant: ${m.content}`;
+      return m.content;
+    }).join('\n\n') + '\n\nAssistant:';
+
+    const response = await fetch('https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'mistralai/Mistral-7B-Instruct-v0.2',
-        messages: messages,
-        max_tokens: 500,
-        temperature: 0.7,
-        top_p: 0.95,
-        stream: false
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 400,
+          temperature: 0.7,
+          top_p: 0.9,
+          do_sample: true,
+          return_full_text: false
+        }
       })
     });
 
@@ -61,15 +71,20 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // Extract AI response (OpenAI-compatible format)
+    // Extract AI response from Inference API format
     let aiText = '';
-    if (data.choices && data.choices[0]?.message?.content) {
-      aiText = data.choices[0].message.content;
-    } else if (data.message) {
-      aiText = data.message;
+    if (Array.isArray(data) && data[0]?.generated_text) {
+      aiText = data[0].generated_text;
+    } else if (data.generated_text) {
+      aiText = data.generated_text;
+    } else if (data.error) {
+      throw new Error(data.error);
     } else if (typeof data === 'string') {
       aiText = data;
     }
+
+    // Clean up the response
+    aiText = aiText.trim();
 
     return res.status(200).json({
       success: true,

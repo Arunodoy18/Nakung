@@ -93,7 +93,8 @@ function setupEventListeners() {
             btn.textContent = 'Test Backend Connection';
           }, 3000);
         } else {
-          statusEl.textContent = `❌ ${response.message}`;
+          const errorMsg = response.error || response.message || 'Connection failed';
+          statusEl.textContent = `❌ ${errorMsg}`;
           statusEl.style.color = '#ef4444';
           btn.style.background = '#ef4444';
           btn.textContent = '❌ Failed';
