@@ -19,7 +19,7 @@
 ### 🤖 **Embedded AI Assistant**
 - **Floating Button**: Beautiful 🚀 AI button that slides in from the right on any LeetCode problem page
 - **Side Panel Chat**: Sleek embedded chat interface - no popup needed!
-- **Real-time AI**: Powered by **Mistral-7B-Instruct** via HuggingFace API
+- **Real-time AI**: Powered by **Llama 3.1 8B Instant** via Groq API
 - **Two Interaction Modes**:
   - **🤝 Partner Mode**: Friendly coding mentor who guides you with Socratic questions
   - **🎯 Reviewer Mode**: FAANG-level technical interviewer who challenges your thinking
@@ -118,7 +118,7 @@ The extension uses a **Vercel serverless backend** to handle AI requests securel
 
 ### Backend Architecture
 - **Platform**: Vercel (Node.js serverless)
-- **AI Model**: Mistral-7B-Instruct-v0.2 via HuggingFace Inference API
+- **AI Model**: Llama-3.1-8B-Instant via Groq API (extremely fast!)
 - **Endpoint**: `https://nakung-backend.vercel.app/api/chat`
 - **Environment Variables**: `HUGGING_FACE_API_KEY` (stored securely in Vercel)
 
@@ -141,8 +141,8 @@ The extension uses a **Vercel serverless backend** to handle AI requests securel
 
 4. **Set environment variable in Vercel dashboard**
    - Go to your Vercel project settings
-   - Add: `HUGGING_FACE_API_KEY` = `your_huggingface_api_key`
-   - Get your key from: https://huggingface.co/settings/tokens
+   - Add: `GROQ_API_KEY` = `your_groq_api_key`
+   - Get your FREE key from: https://console.groq.com/keys
 
 5. **Update extension**
    - Copy your Vercel URL
@@ -190,7 +190,7 @@ Nakung/
 |-----------|------------|
 | **Frontend** | Vanilla JavaScript, Chrome Extension API (Manifest V3) |
 | **Backend** | Node.js, Vercel Serverless Functions |
-| **AI Model** | Mistral-7B-Instruct-v0.2 (HuggingFace) |
+| **AI Model** | Llama-3.1-8B-Instant (Groq) - Ultra Fast! |
 | **Styling** | CSS3 with CSS Variables, Flexbox/Grid |
 | **Storage** | Chrome Storage API (Local Storage) |
 | **Version Control** | Git, GitHub |
@@ -200,7 +200,7 @@ Nakung/
 ## 🔐 Security & Privacy
 
 - ✅ **No data collection**: All conversations stored locally
-- ✅ **Secure API**: HuggingFace API key stored in Vercel environment (never exposed)
+- ✅ **Secure API**: Groq API key stored in Vercel environment (never exposed)
 - ✅ **CORS protected**: Backend only accepts requests from extension
 - ✅ **Open source**: Fully transparent codebase
 
@@ -238,7 +238,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 🙏 Acknowledgments
 
-- **HuggingFace** for providing the AI inference API
+- **Groq** for providing blazing-fast AI inference
 - **Mistral AI** for the powerful Mistral-7B-Instruct model
 - **Vercel** for seamless serverless deployment
 - **LeetCode** for the amazing platform
@@ -263,7 +263,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 </div>
 
 ### Advanced Usage (With AI)
-1. Get a free Hugging Face API key at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+1. Get a FREE Groq API key at [console.groq.com/keys](https://console.groq.com/keys)
 2. Click the extension icon → **⚙️ Settings**
 3. Paste your API key
 4. Click "🧪 Test AI Connection"
