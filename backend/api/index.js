@@ -1,0 +1,130 @@
+// Nakung Backend - Welcome Page
+// This is displayed when visiting the root URL
+
+export default function handler(req, res) {
+  res.setHeader('Content-Type', 'text/html');
+  
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nakung AI Backend</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 600px;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .status {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.5rem 1.5rem;
+      border-radius: 50px;
+      margin: 1rem 0;
+      font-size: 1.1rem;
+    }
+    .status::before {
+      content: "🟢";
+      margin-right: 0.5rem;
+    }
+    .info {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin: 2rem 0;
+      backdrop-filter: blur(10px);
+    }
+    .endpoint {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1rem;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      margin: 1rem 0;
+      word-break: break-all;
+    }
+    .code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    a {
+      color: #fff;
+      text-decoration: none;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+      transition: border-color 0.3s;
+    }
+    a:hover { border-color: #fff; }
+    .footer {
+      margin-top: 2rem;
+      opacity: 0.8;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Nakung AI Backend</h1>
+    <div class="status">API Server Online</div>
+    
+    <div class="info">
+      <h2>✨ Serverless AI API</h2>
+      <p style="margin: 1rem 0;">
+        Powered by <strong>Mistral-7B-Instruct</strong> via HuggingFace
+      </p>
+      
+      <div class="endpoint">
+        <strong>API Endpoint:</strong><br>
+        POST /api/chat
+      </div>
+      
+      <p style="margin-top: 1rem; font-size: 0.9rem;">
+        This backend handles AI requests from the Nakung Chrome Extension.
+      </p>
+    </div>
+    
+    <div class="info">
+      <h3>📖 Test the API</h3>
+      <p style="margin: 1rem 0; text-align: left; font-size: 0.9rem;">
+        Send a POST request with this body:
+      </p>
+      <div class="endpoint" style="text-align: left; font-size: 0.85rem;">
+{
+  "messages": [
+    { "role": "system", "content": "You are helpful" },
+    { "role": "user", "content": "Hello!" }
+  ]
+}
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>
+        📦 Deployed on <a href="https://vercel.com" target="_blank">Vercel</a><br>
+        🔗 <a href="https://github.com/Arunodoy18/Nakung" target="_blank">GitHub Repository</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+  
+  res.status(200).send(html);
+}
