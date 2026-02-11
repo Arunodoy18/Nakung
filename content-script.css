@@ -217,7 +217,7 @@
   backdrop-filter: blur(8px);
 }
 
-.psa-notification.show {
+.psa-notification.visible {
   opacity: 1;
   transform: translateY(0);
 }
@@ -238,4 +238,83 @@
 @keyframes readyPulse {
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
   50% { transform: scale(1.1); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+
+/* ─── Dragging State ──── */
+#problem-solver-assistant-btn.dragging {
+  cursor: grabbing;
+  transform: scale(1.12);
+  box-shadow: 0 8px 32px var(--nk-primary-glow), 0 0 0 4px rgba(124, 58, 237, 0.1);
+  animation: none !important;
+  opacity: 0.92;
+  transition: transform 0.15s var(--nk-ease), box-shadow 0.15s ease;
+}
+
+#problem-solver-assistant-btn.panel-open {
+  animation: none;
+  box-shadow: 0 4px 24px var(--nk-primary-glow), 0 0 0 3px rgba(124, 58, 237, 0.12);
+  transform: scale(1.05);
+}
+
+/* ─── Embedded Chat Panel (iframe) ──── */
+.nakung-chat-panel {
+  position: fixed;
+  right: 28px;
+  bottom: 94px;
+  width: 400px;
+  height: 560px;
+  z-index: 999998;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.18),
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(124, 58, 237, 0.1);
+  opacity: 0;
+  transform: translateY(20px) scale(0.92);
+  pointer-events: none;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.nakung-chat-panel.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.nakung-chat-panel iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #0f0a1f;
+  border-radius: 16px;
+}
+
+/* ─── Panel Close Button ──── */
+.nakung-panel-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.2s ease;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.nakung-panel-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.1);
 }

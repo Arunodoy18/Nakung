@@ -108,7 +108,7 @@ Response Style:
   DIFFICULTY_LEVELS: ['Easy', 'Medium', 'Hard'],
   
   // Version
-  VERSION: '2.2.0'
+  VERSION: '2.3.0'
 };
 
 // Export for use in other files

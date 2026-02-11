@@ -327,16 +327,26 @@
   }
 
   // ==========================================================================
-  // FLOATING BUTTON — Control Menu, Idle Opacity & Ready Ring
+  // FLOATING BUTTON — Draggable, Embedded Chat Panel, Control Menu
   // ==========================================================================
 
-  const IDLE_TIMEOUT = 30000; // 30 seconds
+  const IDLE_TIMEOUT = 30000;
   let idleTimer = null;
   let controlMenuEl = null;
   let floatingBtn = null;
+  let chatPanelEl = null;
+  let isPanelOpen = false;
+
+  // ── Drag state ──
+  let isDragging = false;
+  let dragStarted = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let btnPosX = 0; // Distance from right edge
+  let btnPosY = 0; // Distance from bottom edge
+  const DRAG_THRESHOLD = 5; // px — distinguishes click from drag
 
   function createFloatingButton() {
-    // Don't create if already exists
     if (document.getElementById('problem-solver-assistant-btn')) return;
 
     const btn = document.createElement('div');
@@ -351,25 +361,194 @@
     `;
     document.body.appendChild(btn);
 
-    // Remove entrance animation class after it plays
     setTimeout(() => btn.classList.remove('entering'), 600);
 
-    // Left-click opens the extension popup
+    // Restore saved position
+    const savedPos = localStorage.getItem('nakung-btn-pos');
+    if (savedPos) {
+      try {
+        const pos = JSON.parse(savedPos);
+        btnPosX = pos.x;
+        btnPosY = pos.y;
+        btn.style.right = btnPosX + 'px';
+        btn.style.bottom = btnPosY + 'px';
+      } catch (e) { /* use default */ }
+    }
+
+    // ── Drag handling ──
+    btn.addEventListener('pointerdown', onDragStart);
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+
+    // ── Click opens/closes chat panel ──
     btn.addEventListener('click', e => {
-      if (e.button !== 0) return;
-      chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }).catch(() => {});
+      if (e.button !== 0 || dragStarted) return;
+      toggleChatPanel();
     });
 
-    // Keyboard: Enter/Space activates, Escape closes menu
+    // Keyboard: Enter/Space to toggle panel, Escape to close
     btn.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }).catch(() => {});
+        toggleChatPanel();
       }
     });
 
     return btn;
   }
+
+  // ── Smooth Dragging with pointer events ──
+  function onDragStart(e) {
+    if (e.button === 2) return; // Skip right-click
+    isDragging = true;
+    dragStarted = false;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    floatingBtn.style.transition = 'box-shadow 0.2s ease, transform 0.1s ease';
+    floatingBtn.style.animation = 'none';
+    floatingBtn.setPointerCapture(e.pointerId);
+  }
+
+  function onDragMove(e) {
+    if (!isDragging || !floatingBtn) return;
+
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > DRAG_THRESHOLD) {
+      dragStarted = true;
+      floatingBtn.classList.add('dragging');
+
+      // Calculate new position (from right and bottom edges)
+      const newX = btnPosX - dx;
+      const newY = btnPosY - dy;
+
+      // Clamp within viewport
+      const maxX = window.innerWidth - 70;
+      const maxY = window.innerHeight - 70;
+      const clampedX = Math.max(12, Math.min(maxX, newX));
+      const clampedY = Math.max(12, Math.min(maxY, newY));
+
+      floatingBtn.style.right = clampedX + 'px';
+      floatingBtn.style.bottom = clampedY + 'px';
+
+      // Reposition panel if open
+      if (chatPanelEl && isPanelOpen) {
+        positionChatPanel();
+      }
+    }
+  }
+
+  function onDragEnd(e) {
+    if (!isDragging) return;
+    isDragging = false;
+
+    if (dragStarted && floatingBtn) {
+      // Save final position
+      btnPosX = parseInt(floatingBtn.style.right) || 28;
+      btnPosY = parseInt(floatingBtn.style.bottom) || 28;
+      localStorage.setItem('nakung-btn-pos', JSON.stringify({ x: btnPosX, y: btnPosY }));
+
+      floatingBtn.classList.remove('dragging');
+      floatingBtn.style.transition = '';
+      floatingBtn.style.animation = '';
+
+      // Prevent click from firing after drag
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  // ── Embedded Chat Panel (iframe) ──
+  function createChatPanel() {
+    if (chatPanelEl) return chatPanelEl;
+
+    const container = document.createElement('div');
+    container.id = 'nakung-chat-panel';
+    container.className = 'nakung-chat-panel';
+
+    const iframe = document.createElement('iframe');
+    iframe.src = chrome.runtime.getURL('popup.html');
+    iframe.setAttribute('allow', 'clipboard-write');
+    iframe.setAttribute('title', 'Nakung AI Chat');
+    container.appendChild(iframe);
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'nakung-panel-close';
+    closeBtn.innerHTML = '✕';
+    closeBtn.setAttribute('aria-label', 'Close chat panel');
+    closeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      closeChatPanel();
+    });
+    container.appendChild(closeBtn);
+
+    document.body.appendChild(container);
+    chatPanelEl = container;
+    positionChatPanel();
+
+    return container;
+  }
+
+  function positionChatPanel() {
+    if (!chatPanelEl || !floatingBtn) return;
+
+    const btnRect = floatingBtn.getBoundingClientRect();
+    const panelWidth = 400;
+    const panelHeight = 560;
+    const gap = 14;
+
+    // Position above the button, aligned to right edge
+    let right = window.innerWidth - btnRect.right;
+    let bottom = window.innerHeight - btnRect.top + gap;
+
+    // Keep panel within viewport
+    if (right + panelWidth > window.innerWidth - 12) {
+      right = window.innerWidth - panelWidth - 12;
+    }
+    if (right < 12) right = 12;
+    if (bottom + panelHeight > window.innerHeight - 12) {
+      bottom = 12;
+    }
+
+    chatPanelEl.style.right = right + 'px';
+    chatPanelEl.style.bottom = bottom + 'px';
+  }
+
+  function toggleChatPanel() {
+    if (isPanelOpen) {
+      closeChatPanel();
+    } else {
+      openChatPanel();
+    }
+  }
+
+  function openChatPanel() {
+    if (!chatPanelEl) createChatPanel();
+    positionChatPanel();
+
+    requestAnimationFrame(() => {
+      chatPanelEl.classList.add('open');
+      isPanelOpen = true;
+      floatingBtn.classList.add('panel-open');
+    });
+  }
+
+  function closeChatPanel() {
+    if (!chatPanelEl) return;
+    chatPanelEl.classList.remove('open');
+    isPanelOpen = false;
+    if (floatingBtn) floatingBtn.classList.remove('panel-open');
+  }
+
+  // Close panel on Escape (global)
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isPanelOpen) {
+      closeChatPanel();
+    }
+  });
 
   function initFloatingButton() {
     // Create the button first
@@ -479,16 +658,21 @@
       toggleControlMenu();
     });
 
-    // Long-press support (mobile / trackpad)
+    // Long-press support (mobile / trackpad) — only if not dragging
     let longPressTimer = null;
     floatingBtn.addEventListener('pointerdown', e => {
       if (e.button === 2) return; // Right-click handled above
       longPressTimer = setTimeout(() => {
-        toggleControlMenu();
+        if (!dragStarted) {
+          toggleControlMenu();
+        }
         longPressTimer = null;
       }, 600);
     });
     floatingBtn.addEventListener('pointerup', () => clearTimeout(longPressTimer));
+    floatingBtn.addEventListener('pointermove', () => {
+      if (dragStarted) clearTimeout(longPressTimer);
+    });
     floatingBtn.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
 
     // Close menu on click outside

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Nakung AI Assistant",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "AI coding mentor for LeetCode, CodeChef, HackerRank - Partner & Reviewer modes",
   
   "action": {
@@ -53,5 +53,21 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html", "popup.css", "popup.js", "ai-service.js", "config.js", "icons/*"],
+      "matches": [
+        "https://leetcode.com/*",
+        "https://www.leetcode.com/*",
+        "https://codeforces.com/*",
+        "https://www.codeforces.com/*",
+        "https://hackerrank.com/*",
+        "https://www.hackerrank.com/*",
+        "https://codechef.com/*",
+        "https://www.codechef.com/*"
+      ]
+    }
+  ]
 }
