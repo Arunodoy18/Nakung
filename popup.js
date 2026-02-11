@@ -8,6 +8,7 @@ let currentProblem = null;
 let currentMode = null;
 let chatHistory = [];
 let isWaitingForResponse = false;
+let messageCount = 0; // Track for reward feedback
 
 // DOM elements
 let initialView, chatView, loadingScreen;
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   try {
-    console.log('[Nakung Popup]  Initializing...');
+    console.log('[Nakung Popup] 🚀 Initializing popup...');
     
     // Get DOM elements
     initialView = document.getElementById('initialView');
@@ -56,45 +57,102 @@ async function init() {
       });
     }
     
-    // Load problem and restore state
+    // Keyboard accessibility — Escape returns to mode selection
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && chatView && !chatView.classList.contains('hidden')) {
+        backToModeSelection();
+      }
+    });
+
+    // Offline/online detection
+    window.addEventListener('offline', () => showToast('You\'re offline', 'warning'));
+    window.addEventListener('online', () => showToast('Back online!', 'success'));
+    
+    // Load problem and restore state (with storage recovery)
     await loadProblem();
     await restoreState();
     
+    // Listen for real-time problem updates from content script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'PROBLEM_DETECTED') {
+        console.log('[Nakung Popup] ═══════════════════════════════════════');
+        console.log('[Nakung Popup] 📨 PROBLEM UPDATE RECEIVED');
+        console.log('[Nakung Popup] 📋 New problem:', message.data.title);
+        console.log('[Nakung Popup] 🆔 Problem ID:', message.data.id);
+        console.log('[Nakung Popup] ═══════════════════════════════════════');
+        
+        // Check if this is a different problem
+        const oldProblemId = currentProblem?.id;
+        const newProblemId = message.data.id;
+        
+        // Force reload problem data from storage
+        loadProblem().then(() => {
+          if (oldProblemId && newProblemId && oldProblemId !== newProblemId) {
+            console.log('[Nakung Popup] 🔄 Problem changed! Clearing chat...');
+            clearChat();
+            showInitialView();
+            showToast(`Problem changed: ${message.data.title}`, 'info');
+          } else {
+            showToast(`Problem loaded: ${message.data.title}`, 'success');
+          }
+        });
+      }
+    });
+    
   } catch (error) {
-    console.error('[Nakung Popup]  Init error:', error);
     showError('Failed to initialize extension');
   }
 }
 
 async function loadProblem() {
   try {
-    console.log('[Nakung Popup]  Loading problem from storage...');
+    console.log('[Nakung Popup] 🔍 Loading problem from storage...');
     
-    const result = await Chrome.storage.local.get(['currentProblem']);
+    // CRITICAL: Clear any cached problem data first
+    currentProblem = null;
+    
+    // Fetch FRESH data from chrome.storage
+    const result = await chrome.storage.local.get(['currentProblem', 'lastUpdated']);
     
     if (result.currentProblem) {
       currentProblem = result.currentProblem;
-      console.log('[Nakung Popup]  Problem loaded:', currentProblem);
       
+      console.log('[Nakung Popup] ═══════════════════════════════════════');
+      console.log('[Nakung Popup] ✅ PROBLEM LOADED FROM STORAGE');
+      // Update UI with fresh problem data
       if (problemTitleDisplay) {
         problemTitleDisplay.textContent = currentProblem.title || 'Unknown Problem';
+        problemTitleDisplay.style.color = ''; // Reset any error styling
       }
+      
       if (problemDifficultyDisplay && currentProblem.difficulty && currentProblem.difficulty !== 'Unknown') {
         problemDifficultyDisplay.textContent = currentProblem.difficulty;
+        problemDifficultyDisplay.className = 'difficulty ' + currentProblem.difficulty.toLowerCase();
         problemDifficultyDisplay.style.display = 'inline-block';
+      } else if (problemDifficultyDisplay) {
+        problemDifficultyDisplay.style.display = 'none';
       }
+      
       if (problemPlatformDisplay) {
         problemPlatformDisplay.textContent = currentProblem.platform || '';
       }
       
       hideLoading();
+      
     } else {
-      console.warn('[Nakung Popup]  No problem found in storage');
-      showError('No problem detected. Please open a problem page.');
+      console.warn('[Nakung Popup] ⚠️ No problem found in storage');
+      console.log('[Nakung Popup] 💡 Supported platforms:');
+      console.log('[Nakung Popup]    ✓ LeetCode (leetcode.com/problems/...)');
+      console.log('[Nakung Popup]    ✓ CodeChef (codechef.com/problems/...)');
+      console.log('[Nakung Popup]    ✓ HackerRank (hackerrank.com/challenges/...)');
+      console.log('[Nakung Popup]    ✓ Codeforces (codeforces.com/problemset/...)');
+      
+      showError('No problem detected. Please navigate to a supported problem page.');
+      hideLoading();
     }
     
   } catch (error) {
-    console.error('[Nakung Popup]  Error loading problem:', error);
+    console.error('[Nakung Popup] ❌ Error loading problem:', error);
     showError('Failed to load problem information');
   }
 }
@@ -111,56 +169,84 @@ async function restoreState() {
     const currentProblemId = currentProblem?.id;
     
     if (lastProblemId && currentProblemId && lastProblemId !== currentProblemId) {
-      console.log('[Nakung Popup]  New problem detected, clearing old state');
       await clearState();
       return;
     }
     
-    if (result.currentMode && result.chatHistory && result.chatHistory.length > 0) {
-      currentMode = result.currentMode;
-      chatHistory = result.chatHistory;
+    // Storage corruption recovery — validate data before using
+    const storedHistory = result.chatHistory;
+    if (result.currentMode && Array.isArray(storedHistory) && storedHistory.length > 0) {
+      // Validate each message has role and content
+      const validHistory = storedHistory.filter(m => 
+        m && typeof m.role === 'string' && typeof m.content === 'string'
+      );
       
-      showChatView();
-      
-      chatHistory.forEach(msg => {
-        if (msg.role === 'user') {
-          addUserMessage(msg.content, false);
-        } else {
-          addAIMessage(msg.content, false);
+      if (validHistory.length > 0) {
+        currentMode = result.currentMode;
+        chatHistory = validHistory;
+        messageCount = validHistory.filter(m => m.role === 'user').length;
+        
+        showChatView();
+        
+        chatHistory.forEach(msg => {
+          if (msg.role === 'user') {
+            addUserMessage(msg.content, false);
+          } else {
+            addAIMessage(msg.content, false);
+          }
+        });
+        
+        // Restore scroll position to bottom
+        if (chatMessages) {
+          chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-      });
+      } else {
+        // Corrupted history — clear it
+        await clearState();
+      }
     }
     
   } catch (error) {
-    console.error('[Nakung Popup]  Error restoring state:', error);
+    console.error('[Nakung Popup] ❌ State restore failed, clearing:', error);
+    await clearState();
   }
 }
 
+let _saveDebounce = null;
 async function saveState() {
-  try {
-    await chrome.storage.local.set({
-      currentMode,
-      chatHistory,
-      lastProblemId: currentProblem?.id
-    });
-  } catch (error) {
-    console.error('[Nakung Popup]  Error saving state:', error);
-  }
+  // Debounce to prevent storage race conditions on rapid messages
+  clearTimeout(_saveDebounce);
+  _saveDebounce = setTimeout(async () => {
+    try {
+      await chrome.storage.local.set({
+        currentMode,
+        chatHistory: chatHistory.slice(-20), // Cap stored history
+        lastProblemId: currentProblem?.id
+      });
+    } catch (error) {
+      console.error('[Nakung Popup] ❌ Save failed:', error);
+    }
+  }, 200);
 }
 
 async function clearState() {
+  console.log('[Nakung Popup] 🧹 Clearing chat state...');
   chatHistory = [];
   currentMode = null;
-  await chrome.storage.local.remove(['currentMode', 'chatHistory']);
+  if (chatMessages) {
+    chatMessages.innerHTML = '';
+  }
+  await chrome.storage.local.remove(['currentMode', 'chatHistory', 'lastProblemId']);
   aiService.clearHistory();
 }
 
 function selectMode(mode) {
   currentMode = mode;
-  console.log('[Nakung Popup]  Mode selected:', mode);
+  console.log('[Nakung Popup] 🎯 Mode selected:', mode);
+  console.log('[Nakung Popup] 📋 For problem:', currentProblem?.title);
   
   chatHistory = [];
-  chatMessages.innerHTML = '';
+  if (chatMessages) chatMessages.innerHTML = '';
   aiService.clearHistory();
   
   showChatView();
@@ -169,10 +255,19 @@ function selectMode(mode) {
 }
 
 function showWelcomeMessage(mode) {
+  const modeDisplay = document.getElementById('modeDisplay');
   if (mode === 'partner') {
-    addAIMessage(`Hi! I'm your coding partner. I'll guide you with hints and questions - I won't give you the direct solution, but I'll help you think through it step by step. What would you like to ask about this problem?`);
+    if (modeDisplay) {
+      modeDisplay.textContent = '💡 Partner Mode';
+      modeDisplay.style.background = 'linear-gradient(135deg, var(--primary-from) 0%, var(--primary-to) 100%)';
+    }
+    addAIMessage(`Hey! I'm your coding partner. I'll help you think through this step by step — no spoilers, just good nudges. What's your first thought on this problem?`);
   } else if (mode === 'reviewer') {
-    addAIMessage(`Hello! I'm your technical interviewer. I'll ask you questions about your approach, check your understanding, and help you think like you're in a FAANG interview. Ready to start? Tell me - how would you approach this problem?`);
+    if (modeDisplay) {
+      modeDisplay.textContent = '🎯 Reviewer Mode';
+      modeDisplay.style.background = 'linear-gradient(135deg, #312e81 0%, #4338ca 100%)';
+    }
+    addAIMessage(`Let's begin. Walk me through your initial approach to this problem — what data structures or algorithms come to mind?`);
   }
 }
 
@@ -204,12 +299,43 @@ function hideLoading() {
 
 function showError(message) {
   if (problemTitleDisplay) {
-    problemTitleDisplay.textContent = ' ' + message;
+    problemTitleDisplay.textContent = '⚠️ ' + message;
+    problemTitleDisplay.style.color = 'var(--error-light)';
   }
   hideLoading();
 }
 
+// Toast notification function
+function showToast(message, type = 'success') {
+  const toastContainer = document.getElementById('toastContainer');
+  if (!toastContainer) return;
+  
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️'
+  };
+  
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || icons.info}</div>
+    <div class="toast-message">${message}</div>
+  `;
+  
+  toastContainer.appendChild(toast);
+  
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    toast.style.animation = 'fadeOut 0.3s ease-out';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
 async function sendMessage() {
+  if (!userInput) return;
   const message = userInput.value.trim();
   
   if (!message || isWaitingForResponse) return;
@@ -219,10 +345,26 @@ async function sendMessage() {
     return;
   }
   
+  // Check if problem is loaded
+  if (!currentProblem) {
+    console.error('[Nakung Popup] ❌ Cannot send message: No problem loaded');
+    showToast('No problem detected. Please open a supported problem page.', 'warning');
+    addAIMessage('⚠️ No problem context available. Please navigate to a supported problem page:\n\n• LeetCode (leetcode.com/problems/...)\n• CodeChef (codechef.com/problems/...)\n• HackerRank (hackerrank.com/challenges/...)\n• Codeforces (codeforces.com/problemset/...)');
+    return;
+  }
+  
+  console.log('[Nakung Popup] 📤 Sending message with problem context...');
+  console.log('[Nakung Popup] 💬 User message:', message);
+  console.log('[Nakung Popup] 📋 Problem context:', {
+    title: currentProblem.title,
+    difficulty: currentProblem.difficulty,
+    platform: currentProblem.platform,
+    hasDescription: !!currentProblem.description
+  });
+  
   try {
     isWaitingForResponse = true;
-    sendBtn.disabled = true;
-    sendBtn.textContent = '';
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = ''; }
     
     addUserMessage(message);
     userInput.value = '';
@@ -232,7 +374,9 @@ async function sendMessage() {
     
     const typingIndicator = showTypingIndicator();
     
+    console.log('[Nakung Popup] 🚀 Calling AI service with problem context...');
     const response = await aiService.generateResponse(message, currentMode, currentProblem);
+    console.log('[Nakung Popup] 📨 AI response received:', response.success ? '✅ Success' : '❌ Failed');
     
     typingIndicator.remove();
     
@@ -240,24 +384,41 @@ async function sendMessage() {
       addAIMessage(response.text);
       chatHistory.push({ role: 'assistant', content: response.text });
       await saveState();
+      
+      // Reward micro-feedback — subtle positive reinforcement
+      messageCount++;
+      if (messageCount === 3) {
+        showToast('Great conversation flow!', 'success');
+      } else if (messageCount === 8) {
+        showToast('Deep dive session — keep going!', 'success');
+      }
     } else {
-      addAIMessage(` Error: ${response.error || 'Failed to get response'}. ${response.text}`);
+      // Contextual error messages based on error type
+      const errorType = response.error || '';
+      if (errorType === 'offline') {
+        showToast('You\'re offline', 'warning');
+      } else if (errorType === 'rate_limit') {
+        showToast('Slow down — try again in a moment', 'warning');
+      } else {
+        showToast('Failed to get AI response', 'error');
+      }
+      addAIMessage(response.text);
     }
     
   } catch (error) {
-    console.error('[Nakung Popup]  Send message error:', error);
     const errorMsg = document.querySelector('.typing-indicator');
     if (errorMsg) errorMsg.remove();
-    addAIMessage(' Sorry, something went wrong. Please try again.');
+    showToast('Connection error', 'error');
+    addAIMessage('❌ Connection error. Please check:\n\n• Internet connection\n• Backend status\n• Try refreshing the page\n\nError: ' + error.message);
   } finally {
     isWaitingForResponse = false;
-    sendBtn.disabled = false;
-    sendBtn.textContent = 'Send';
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
     if (userInput) userInput.focus();
   }
 }
 
 function addUserMessage(text, scrollToBottom = true) {
+  if (!chatMessages) return;
   const msgDiv = document.createElement('div');
   msgDiv.className = 'message user';
   msgDiv.innerHTML = `
@@ -272,6 +433,7 @@ function addUserMessage(text, scrollToBottom = true) {
 }
 
 function addAIMessage(text, scrollToBottom = true) {
+  if (!chatMessages) return;
   const icon = currentMode === 'partner' ? '' : '';
   const modeName = currentMode === 'partner' ? 'Partner' : 'Reviewer';
   
@@ -300,13 +462,15 @@ function showTypingIndicator() {
       Thinking...
     </div>
   `;
-  chatMessages.appendChild(typingDiv);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  if (chatMessages) {
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
   return typingDiv;
 }
 
 function clearChat() {
-  chatMessages.innerHTML = '';
+  if (chatMessages) chatMessages.innerHTML = '';
   chatHistory = [];
   aiService.clearHistory();
   saveState();

@@ -1,81 +1,241 @@
-/* Floating assistant button */
+/* ============================================================================
+   NAKUNG FLOATING BUTTON — Premium SaaS Quality
+   ============================================================================ */
+
+/* ─── CSS Variables (scoped to Nakung) ──── */
+#problem-solver-assistant-btn,
+.nakung-control-menu,
+.psa-notification {
+  --nk-primary-from: #5b4ee8;
+  --nk-primary-to: #8b5cf6;
+  --nk-primary: #7c3aed;
+  --nk-primary-glow: rgba(124, 58, 237, 0.35);
+  --nk-surface: #ffffff;
+  --nk-text: #1e1b4b;
+  --nk-text-secondary: #6b7280;
+  --nk-border: rgba(124, 58, 237, 0.12);
+  --nk-radius: 14px;
+  --nk-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Floating Button ──── */
 #problem-solver-assistant-btn {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  bottom: 28px;
+  right: 28px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--nk-primary-from) 0%, var(--nk-primary-to) 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 26px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px var(--nk-primary-glow), 0 0 0 0 rgba(124, 58, 237, 0);
+  transition: all 0.3s var(--nk-ease);
   z-index: 999999;
-  animation: pulse 2s infinite;
+  animation: nakungBreathing 3s ease-in-out infinite;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  -webkit-font-smoothing: antialiased;
 }
 
 #problem-solver-assistant-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px var(--nk-primary-glow), 0 0 0 6px rgba(124, 58, 237, 0.08);
+  animation: none;
 }
 
 #problem-solver-assistant-btn:active {
   transform: scale(0.95);
+  box-shadow: 0 2px 8px var(--nk-primary-glow);
 }
 
+/* Smart idle opacity — fades slightly when not interacted */
+#problem-solver-assistant-btn.idle {
+  opacity: 0.7;
+  transition: opacity 1.5s ease;
+}
+#problem-solver-assistant-btn.idle:hover {
+  opacity: 1;
+}
+
+/* Breathing glow animation — subtle, not distracting */
+@keyframes nakungBreathing {
+  0%, 100% {
+    box-shadow: 0 4px 16px var(--nk-primary-glow), 0 0 0 0 rgba(124, 58, 237, 0);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45), 0 0 0 4px rgba(124, 58, 237, 0.06);
+  }
+}
+
+/* Slide-in animation on first load */
+@keyframes nakungSlideIn {
+  from {
+    transform: translateX(100px) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+#problem-solver-assistant-btn.entering {
+  animation: nakungSlideIn 0.5s var(--nk-ease) forwards;
+}
+
+/* ─── Tooltip ──── */
 .psa-tooltip {
   position: absolute;
-  bottom: 70px;
+  bottom: 66px;
   right: 0;
-  background: #333;
+  background: var(--nk-text);
   color: white;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  transition: all 0.25s var(--nk-ease);
+  transform: translateY(4px);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: -0.2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.psa-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  right: 20px;
+  width: 10px;
+  height: 10px;
+  background: var(--nk-text);
+  transform: rotate(45deg);
+  border-radius: 2px;
 }
 
 #problem-solver-assistant-btn:hover .psa-tooltip {
   opacity: 1;
+  transform: translateY(0);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  }
-  50% {
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.7);
-  }
+/* ─── Control Menu (hover/right-click) ──── */
+.nakung-control-menu {
+  position: fixed;
+  bottom: 94px;
+  right: 28px;
+  background: var(--nk-surface);
+  border-radius: var(--nk-radius);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--nk-border);
+  z-index: 1000000;
+  min-width: 220px;
+  padding: 6px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.95);
+  transition: all 0.25s var(--nk-ease);
+  pointer-events: none;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
-/* Notification */
+.nakung-control-menu.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.nakung-control-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--nk-text);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.nakung-control-menu-item:hover {
+  background: rgba(124, 58, 237, 0.06);
+  color: var(--nk-primary);
+}
+
+.nakung-control-menu-item .menu-icon {
+  font-size: 16px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.nakung-control-menu-item .menu-label {
+  flex: 1;
+}
+
+.nakung-control-menu-item .menu-sublabel {
+  font-size: 11px;
+  color: var(--nk-text-secondary);
+  font-weight: 400;
+}
+
+.nakung-control-menu-divider {
+  height: 1px;
+  background: var(--nk-border);
+  margin: 4px 10px;
+}
+
+/* ─── Notification Toast ──── */
 .psa-notification {
   position: fixed;
   top: 20px;
   right: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 15px 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: var(--nk-surface);
+  color: var(--nk-text);
+  padding: 14px 18px;
+  border-radius: var(--nk-radius);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   z-index: 999999;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 14px;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
   font-weight: 600;
   opacity: 0;
-  transform: translateY(-20px);
-  transition: all 0.3s ease;
+  transform: translateY(-16px);
+  transition: all 0.35s var(--nk-ease);
+  border-left: 3px solid var(--nk-primary);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 .psa-notification.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* ─── Pulse Ring (ready indicator) ──── */
+.nakung-ready-ring {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  background: #10b981;
+  border-radius: 50%;
+  border: 2px solid white;
+  animation: readyPulse 2s ease-in-out infinite;
+}
+
+@keyframes readyPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
 }

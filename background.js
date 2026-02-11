@@ -2,9 +2,7 @@
 // NAKUNG BACKGROUND SERVICE WORKER - Handles AI requests and backend communication
 // ===========================================================================
 
-console.log('═══════════════════════════════════════════════════');
-console.log('[Nakung Background] 🚀 Service worker initialized');
-console.log('═══════════════════════════════════════════════════');
+console.log('[Nakung Background] Service worker ready');
 
 const BACKEND_URL = 'https://nakung-backend.vercel.app/api/chat';
 
@@ -34,6 +32,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'OPEN_SETTINGS') {
     console.log('[Nakung Background] ⚙️ Opening settings page...');
     chrome.runtime.openOptionsPage();
+    return false;
+  }
+  
+  if (request.type === 'OPEN_POPUP') {
+    console.log('[Nakung Background] 🚀 Floating button clicked — opening popup');
+    // Can't programmatically open popup, but we can open the extension page in a new tab
+    // The popup itself opens from the toolbar icon
     return false;
   }
   

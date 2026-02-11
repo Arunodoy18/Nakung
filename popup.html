@@ -4,111 +4,127 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nakung AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
   <style>
-    /* Additional styles for new features */
+    /* ═══ Loading Screen ═══ */
     #loadingScreen {
       display: none;
       align-items: center;
       justify-content: center;
+      flex-direction: column;
       height: 100%;
-      font-size: 16px;
-      color: #6366f1;
+      gap: 12px;
     }
+    #loadingScreen.show { display: flex; }
     
-    #loadingScreen.show {
-      display: flex;
+    .loading-orb {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-from) 0%, var(--primary-to) 100%);
+      animation: orbPulse 1.5s ease-in-out infinite;
+      box-shadow: 0 0 24px var(--primary-glow);
     }
-    
-    .problem-header {
-      padding: 15px 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-radius: 12px 12px 0 0;
-      margin: -15px -15px 15px -15px;
+    @keyframes orbPulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.05); opacity: 1; }
     }
-    
-    .problem-title {
-      font-size: 18px;
+    .loading-label {
+      font-size: 13px;
+      color: var(--text-muted);
       font-weight: 600;
-      margin-bottom: 8px;
+      letter-spacing: -0.2px;
     }
     
+    /* ═══ Problem Header ═══ */
+    .problem-header {
+      padding: 16px 20px;
+      background: linear-gradient(135deg, var(--primary-from) 0%, var(--primary-to) 100%);
+      color: white;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      margin: -20px -20px 18px -20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .problem-header::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    .problem-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+      position: relative;
+      z-index: 1;
+    }
     .problem-meta {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 13px;
-      opacity: 0.95;
+      font-size: 12px;
+      opacity: 0.92;
+      position: relative;
+      z-index: 1;
     }
-    
     .difficulty-badge {
       display: inline-block;
-      padding: 3px 10px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.2);
-      font-weight: 500;
-      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.18);
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
     }
     
+    /* ═══ Mode Display ═══ */
     .mode-display {
-      padding: 12px 15px;
-      border-radius: 8px;
-      margin-bottom: 15px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
       color: white;
-      font-size: 14px;
+      font-size: 12px;
+      font-weight: 700;
       text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
     }
     
-    .typing-dots {
-      display: inline-flex;
-      gap: 4px;
-      margin-right: 8px;
-    }
-    
+    /* ═══ Typing Dots ═══ */
+    .typing-dots { display: inline-flex; gap: 4px; margin-right: 8px; }
     .typing-dots span {
-      width: 6px;
-      height: 6px;
+      width: 6px; height: 6px;
       border-radius: 50%;
-      background: #6366f1;
+      background: var(--primary-color);
       animation: typing 1.4s infinite;
     }
-    
-    .typing-dots span:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-    
-    .typing-dots span:nth-child(3) {
-      animation-delay: 0.4s;
-    }
-    
+    .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
     @keyframes typing {
-      0%, 60%, 100% { transform: translateY(0); }
-      30% { transform: translateY(-10px); }
-    }
-    
-    @keyframes slideUp {
-      from { transform: translateX(-50%) translateY(20px); opacity: 0; }
-      to { transform: translateX(-50%) translateY(0); opacity: 1; }
-    }
-    
-    @keyframes slideDown {
-      from { transform: translateX(-50%) translateY(0); opacity: 1; }
-      to { transform: translateX(-50%) translateY(20px); opacity: 0; }
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-8px); opacity: 1; }
     }
   </style>
 </head>
 <body>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+  
   <div class="container">
     <!-- Loading Screen -->
     <div id="loadingScreen">
-      <div>
-        <div style="font-size: 32px; text-align: center; margin-bottom: 10px;">🚀</div>
-        <div>Loading problem...</div>
-      </div>
+      <div class="loading-orb"></div>
+      <div class="loading-label">Detecting problem...</div>
     </div>
     
-    <!-- Initial Mode Selection -->
+    <!-- Mode Selection -->
     <div id="initialView" class="hidden">
       <div class="problem-header">
         <div class="problem-title" id="problemTitleDisplay">Loading...</div>
@@ -118,54 +134,57 @@
         </div>
       </div>
       
-      <h2 style="text-align: center; margin-bottom: 20px; font-size: 20px;">Choose Your AI Mode</h2>
+      <h2 class="mode-heading">Choose Your AI Mode</h2>
       
-      <div class="button-group" style="display: grid; gap: 15px;">
-        <button id="partnerBtn" class="btn btn-partner" style="padding: 20px; text-align: left; position: relative;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 32px;">💡</span>
+      <div class="button-group">
+        <button id="partnerBtn" class="btn btn-partner">
+          <div class="mode-btn-layout">
+            <span class="mode-btn-icon">💡</span>
             <div>
-              <div style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">Partner Mode</div>
-              <div style="font-size: 13px; opacity: 0.85;">Friendly mentor who guides with hints</div>
+              <div class="mode-btn-title">Partner Mode</div>
+              <div class="mode-btn-desc">Friendly mentor who guides with hints</div>
             </div>
           </div>
         </button>
         
-        <button id="reviewerBtn" class="btn btn-reviewer" style="padding: 20px; text-align: left; position: relative;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 32px;">🎯</span>
+        <button id="reviewerBtn" class="btn btn-reviewer">
+          <div class="mode-btn-layout">
+            <span class="mode-btn-icon">🎯</span>
             <div>
-              <div style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">Reviewer Mode</div>
-              <div style="font-size: 13px; opacity: 0.85;">FAANG interviewer who asks probing questions</div>
+              <div class="mode-btn-title">Reviewer Mode</div>
+              <div class="mode-btn-desc">FAANG interviewer with probing questions</div>
             </div>
           </div>
         </button>
+      </div>
+      
+      <div class="footer-tagline">
+        Nakung AI · Your brain's coding companion
       </div>
     </div>
 
     <!-- Chat Interface -->
     <div id="chatView" class="hidden">
-      <div class="chat-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-        <button id="backBtn" class="btn-small" style="background: #e5e7eb; color: #374151; padding: 8px 15px; border: none; border-radius: 8px; cursor: pointer;">← Back</button>
-        <div style="font-size: 14px; color: #6b7280;">🚀 Nakung AI</div>
+      <div class="chat-header">
+        <button id="backBtn">← Back</button>
+        <div class="chat-brand">🚀 Nakung AI</div>
       </div>
       
       <div id="modeDisplay" class="mode-display"></div>
       
-      <div id="chatMessages" class="chat-messages" style="height: 350px; overflow-y: auto; margin-bottom: 15px; padding: 15px; background: #f9fafb; border-radius: 8px;"></div>
+      <div id="chatMessages" class="chat-messages"></div>
       
-      <div class="chat-input-container" style="display: flex; gap: 10px;">
+      <div class="chat-input-container">
         <textarea 
-          id="chatInput" 
-          placeholder="Type your message..."
+          id="userInput" 
+          placeholder="Ask about this problem..."
           rows="2"
-          style="flex: 1; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; resize: none; font-family: inherit; font-size: 14px;"></textarea>
-        <button id="sendBtn" class="btn btn-send" style="padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Send</button>
+        ></textarea>
+        <button id="sendBtn" class="btn-send">Send</button>
       </div>
     </div>
   </div>
 
-  <!-- Load dependencies in correct order -->
   <script src="config.js"></script>
   <script src="ai-service.js"></script>
   <script src="popup.js"></script>

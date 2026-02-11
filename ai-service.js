@@ -8,51 +8,102 @@ class AIService {
     this.conversationHistory = [];
     this.maxHistoryLength = 10;
     this.backendUrl = CONFIG.BACKEND.url;
+    this.lastRequestTime = 0;
+    this.isOffline = false;
+  }
+
+  // ── Micro delay for human-like pacing ──
+  // Short replies feel instant; complex ones get a natural brief pause
+  _humanDelay(responseLength) {
+    if (responseLength > 400) return 300; // Complex reply — tiny pause
+    if (responseLength > 200) return 150;
+    return 50; // Short reply — near-instant
+  }
+
+  // ── Rate limiter ──
+  async _waitForRateLimit() {
+    const now = Date.now();
+    const elapsed = now - this.lastRequestTime;
+    const cooldown = CONFIG.BACKEND.rateLimitCooldown || 3000;
+    if (elapsed < cooldown) {
+      await new Promise(r => setTimeout(r, cooldown - elapsed));
+    }
+    this.lastRequestTime = Date.now();
   }
 
   // Generate AI response by calling backend
   async generateResponse(userMessage, mode = 'partner', problemContext = null) {
+    // Check offline
+    if (!navigator.onLine) {
+      return {
+        success: false,
+        error: 'offline',
+        text: "You appear to be offline. I'll be ready when your connection comes back!"
+      };
+    }
+
+    // Rate limit
+    await this._waitForRateLimit();
+
     try {
       // Build messages array for backend
       const messages = this.buildMessages(userMessage, mode, problemContext);
+      
+      console.log('[AI Service] 📤 Messages:', messages.length, '| Backend:', this.backendUrl);
 
-      console.log('[AI Service] 🚀 Calling backend:', this.backendUrl);
-      console.log('[AI Service] 📤 Messages:', messages);
+      // Call backend API with safe timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CONFIG.BACKEND.timeout);
 
-      // Call backend API
       const response = await fetch(this.backendUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages }),
-        signal: AbortSignal.timeout(CONFIG.BACKEND.timeout)
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
+      if (response.status === 429) {
+        return {
+          success: false,
+          error: 'rate_limit',
+          text: "We're getting a lot of requests right now. Try again in a few seconds."
+        };
+      }
+
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => 'Unknown error');
         console.error('[AI Service] ❌ Backend error:', response.status, errorText);
         throw new Error(`Backend error: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('[AI Service] ✅ Response received:', data);
+      // Safe JSON parse
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        console.error('[AI Service] ❌ JSON parse failed:', parseErr);
+        throw new Error('Invalid response from backend');
+      }
 
       if (!data.success || !data.message) {
         throw new Error('Invalid response format from backend');
       }
 
-      // Store in conversation history
-      this.conversationHistory.push({
-        role: 'user',
-        content: userMessage
-      });
-      this.conversationHistory.push({
-        role: 'assistant',
-        content: data.message
-      });
+      // Human-like micro delay — complex replies feel natural
+      const delay = this._humanDelay(data.message.length);
+      if (delay > 50) {
+        await new Promise(r => setTimeout(r, delay));
+      }
 
-      // Trim history if too long
+      // Store in conversation history
+      this.conversationHistory.push(
+        { role: 'user', content: userMessage },
+        { role: 'assistant', content: data.message }
+      );
+
+      // Trim history — keep recent context with memory weighting
       if (this.conversationHistory.length > this.maxHistoryLength * 2) {
         this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength * 2);
       }
@@ -64,11 +115,19 @@ class AIService {
       };
 
     } catch (error) {
-      console.error('[AI Service] ❌ Error:', error);
+      console.error('[AI Service] ❌ Error:', error.message);
+      
+      const isTimeout = error.name === 'AbortError';
+      const isNetwork = error.message?.includes('fetch') || error.message?.includes('network');
+      
       return {
         success: false,
         error: error.message,
-        text: this.getFallbackResponse(mode)
+        text: isTimeout 
+          ? "The request took too long. The backend might be cold-starting — try again in a moment."
+          : isNetwork
+          ? "Can't reach the server. Check your internet connection and try again."
+          : this.getFallbackResponse(mode)
       };
     }
   }
@@ -84,16 +143,20 @@ class AIService {
       
       // Add problem context if available
       if (problemContext) {
-        systemPrompt += `\n\nCurrent Problem Context:
-Problem: ${problemContext.title || 'Unknown'}
-Platform: ${problemContext.platform || 'Unknown'}
-Difficulty: ${problemContext.difficulty || 'Unknown'}`;
+        console.log('[AI Service] 📝 Adding problem context to system prompt...');
+        systemPrompt += `\n\n=== CURRENT PROBLEM CONTEXT ===\nProblem Title: ${problemContext.title || 'Unknown'}\nPlatform: ${problemContext.platform || 'Unknown'}\nDifficulty: ${problemContext.difficulty || 'Unknown'}`;
         
         if (problemContext.description) {
           // Truncate description to avoid token limits
-          const descPreview = problemContext.description.substring(0, 500);
-          systemPrompt += `\nDescription: ${descPreview}${problemContext.description.length > 500 ? '...' : ''}`;
+          const descPreview = problemContext.description.substring(0, 800);
+          systemPrompt += `\nDescription: ${descPreview}${problemContext.description.length > 800 ? '...' : ''}`;
+          console.log('[AI Service] 📄 Description length:', problemContext.description.length, 'chars (truncated to 800)');
+        } else {
+          console.log('[AI Service] ⚠️ No description in problem context');
         }
+        systemPrompt += '\n================================';
+      } else {
+        console.warn('[AI Service] ⚠️ No problem context provided!');
       }
       
       messages.push({
@@ -127,49 +190,11 @@ Difficulty: ${problemContext.difficulty || 'Unknown'}`;
   // Clear conversation history (when switching problems or modes)
   clearHistory() {
     this.conversationHistory = [];
-    console.log('[AI Service] 🧹 Conversation history cleared');
   }
 
   // Get conversation history for display
   getHistory() {
     return this.conversationHistory;
-  }
-}
-
-// Create global instance
-const aiService = new AIService();
-
-  // Reset conversation
-  resetConversation() {
-    this.conversationHistory = [];
-  }
-
-  // Get fallback response (when API fails)
-  getFallbackResponse(context = 'reviewer') {
-    if (context === 'reviewer') {
-      const fallbacks = [
-        "That's interesting! Can you walk me through your thought process?",
-        "Good start. What about the edge cases?",
-        "How would you optimize that approach?",
-        "Can you analyze the time complexity?",
-        "What data structure would work best here?",
-        "Excellent! Now, how would you test this?",
-        "Think about the trade-offs in your solution.",
-        "Could you explain with a specific example?"
-      ];
-      return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    } else {
-      const fallbacks = [
-        "Consider using a hash map for O(1) lookups.",
-        "Think about the two-pointer technique.",
-        "Have you considered dynamic programming?",
-        "Draw out a few examples to find patterns.",
-        "What's the brute force? Start there.",
-        "Consider sorting the input first.",
-        "Think about time vs space trade-offs."
-      ];
-      return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    }
   }
 }
 
