@@ -2,13 +2,13 @@
 // NAKUNG BACKGROUND SERVICE WORKER - Handles AI requests and backend communication
 // ===========================================================================
 
-console.log('[Nakung Background] Service worker ready');
-
 const BACKEND_URL = 'https://nakung-backend.vercel.app/api/chat';
 
 // ===================================================================
 // MESSAGE LISTENER
 // ===================================================================
+
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('[Nakung Background] 📨 Received message:', request.type);
@@ -294,3 +294,5 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 console.log('[Nakung Background] ✅ Background service worker ready');
+
+} // end chrome runtime guard
