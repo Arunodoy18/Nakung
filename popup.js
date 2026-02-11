@@ -456,25 +456,30 @@ function addUserMessage(text, scrollToBottom = true) {
   `;
   chatMessages.appendChild(msgDiv);
   
-  if (scrollToBottom) {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
+  if (scrollToBottom) smartScroll();
 }
 
 function addAIMessage(text, scrollToBottom = true) {
   if (!chatMessages) return;
-  const icon = currentMode === 'partner' ? '' : '';
   const modeName = currentMode === 'partner' ? 'Partner' : 'Reviewer';
   
   const msgDiv = document.createElement('div');
   msgDiv.className = 'message ai';
   msgDiv.innerHTML = `
-    <div class="message-header">${icon} ${modeName}</div>
+    <div class="message-header">${modeName}</div>
     <div class="message-content">${escapeHtml(text)}</div>
   `;
   chatMessages.appendChild(msgDiv);
   
-  if (scrollToBottom) {
+  if (scrollToBottom) smartScroll();
+}
+
+// Smart scroll — only auto-scroll if user is near the bottom (not reading old messages)
+function smartScroll() {
+  if (!chatMessages) return;
+  const threshold = 80; // px from bottom
+  const isNearBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+  if (isNearBottom) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 }
