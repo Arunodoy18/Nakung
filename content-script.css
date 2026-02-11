@@ -287,8 +287,14 @@
   width: 100%;
   height: 100%;
   border: none;
-  background: #0f0a1f;
+  background: var(--nk-surface, #faf9ff);
   border-radius: 16px;
+  opacity: 0;
+  transition: opacity 0.25s ease 0.1s;
+}
+
+.nakung-chat-panel.open iframe {
+  opacity: 1;
 }
 
 /* ─── Panel Close Button ──── */

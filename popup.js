@@ -9,6 +9,7 @@ let currentMode = null;
 let chatHistory = [];
 let isWaitingForResponse = false;
 let messageCount = 0; // Track for reward feedback
+let _isRestoringState = false; // Prevents flash during restore
 
 // DOM elements
 let initialView, chatView, loadingScreen;
@@ -68,9 +69,55 @@ async function init() {
     window.addEventListener('offline', () => showToast('You\'re offline', 'warning'));
     window.addEventListener('online', () => showToast('Back online!', 'success'));
     
+    // Pre-check: if state exists, skip loading flash entirely
+    const preCheck = await chrome.storage.local.get(['currentMode', 'chatHistory', 'currentProblem']);
+    if (preCheck.currentMode && preCheck.currentProblem) {
+      _isRestoringState = true;
+      if (loadingScreen) loadingScreen.style.display = 'none';
+    }
+    
     // Load problem and restore state (with storage recovery)
     await loadProblem();
     await restoreState();
+    _isRestoringState = false;
+    
+    // Listen for storage changes from other surfaces (popup ↔ iframe sync)
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local') return;
+      
+      // Problem changed externally
+      if (changes.currentProblem?.newValue) {
+        const newProblem = changes.currentProblem.newValue;
+        const oldId = currentProblem?.id;
+        if (newProblem.id !== oldId) {
+          currentProblem = newProblem;
+          updateProblemUI();
+          if (oldId) {
+            clearChat();
+            showInitialView();
+          }
+        }
+      }
+      
+      // Chat history changed externally (other surface sent a message)
+      if (changes.chatHistory?.newValue && !isWaitingForResponse) {
+        const externalHistory = changes.chatHistory.newValue;
+        if (externalHistory.length !== chatHistory.length) {
+          chatHistory = externalHistory;
+          messageCount = chatHistory.filter(m => m.role === 'user').length;
+          rebuildChatUI();
+        }
+      }
+      
+      // Mode changed externally
+      if (changes.currentMode?.newValue && changes.currentMode.newValue !== currentMode) {
+        currentMode = changes.currentMode.newValue;
+        restoreModeDisplay(currentMode);
+        if (chatView?.classList.contains('hidden')) {
+          showChatView();
+        }
+      }
+    });
     
     // Listen for real-time problem updates from content script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -119,23 +166,7 @@ async function loadProblem() {
       
       console.log('[Nakung Popup] ═══════════════════════════════════════');
       console.log('[Nakung Popup] ✅ PROBLEM LOADED FROM STORAGE');
-      // Update UI with fresh problem data
-      if (problemTitleDisplay) {
-        problemTitleDisplay.textContent = currentProblem.title || 'Unknown Problem';
-        problemTitleDisplay.style.color = ''; // Reset any error styling
-      }
-      
-      if (problemDifficultyDisplay && currentProblem.difficulty && currentProblem.difficulty !== 'Unknown') {
-        problemDifficultyDisplay.textContent = currentProblem.difficulty;
-        problemDifficultyDisplay.className = 'difficulty ' + currentProblem.difficulty.toLowerCase();
-        problemDifficultyDisplay.style.display = 'inline-block';
-      } else if (problemDifficultyDisplay) {
-        problemDifficultyDisplay.style.display = 'none';
-      }
-      
-      if (problemPlatformDisplay) {
-        problemPlatformDisplay.textContent = currentProblem.platform || '';
-      }
+      updateProblemUI();
       
       hideLoading();
       
@@ -186,24 +217,20 @@ async function restoreState() {
         chatHistory = validHistory;
         messageCount = validHistory.filter(m => m.role === 'user').length;
         
+        // Restore mode display WITHOUT re-intro welcome message
+        restoreModeDisplay(currentMode);
         showChatView();
-        
-        chatHistory.forEach(msg => {
-          if (msg.role === 'user') {
-            addUserMessage(msg.content, false);
-          } else {
-            addAIMessage(msg.content, false);
-          }
-        });
-        
-        // Restore scroll position to bottom
-        if (chatMessages) {
-          chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
+        rebuildChatUI();
       } else {
         // Corrupted history — clear it
         await clearState();
       }
+    } else if (result.currentMode && !storedHistory?.length) {
+      // Mode was set but no messages yet — resume the mode
+      currentMode = result.currentMode;
+      restoreModeDisplay(currentMode);
+      showChatView();
+      showWelcomeMessage(currentMode);
     }
     
   } catch (error) {
@@ -243,7 +270,6 @@ async function clearState() {
 function selectMode(mode) {
   currentMode = mode;
   console.log('[Nakung Popup] 🎯 Mode selected:', mode);
-  console.log('[Nakung Popup] 📋 For problem:', currentProblem?.title);
   
   chatHistory = [];
   if (chatMessages) chatMessages.innerHTML = '';
@@ -251,7 +277,10 @@ function selectMode(mode) {
   
   showChatView();
   showWelcomeMessage(mode);
+  
+  // Save mode + remember as preferred for future sessions
   saveState();
+  chrome.storage.local.set({ preferredMode: mode });
 }
 
 function showWelcomeMessage(mode) {
@@ -484,5 +513,50 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ── Cross-surface helpers ──
+
+function updateProblemUI() {
+  if (!currentProblem) return;
+  if (problemTitleDisplay) {
+    problemTitleDisplay.textContent = currentProblem.title || 'Unknown Problem';
+    problemTitleDisplay.style.color = '';
+  }
+  if (problemDifficultyDisplay && currentProblem.difficulty && currentProblem.difficulty !== 'Unknown') {
+    problemDifficultyDisplay.textContent = currentProblem.difficulty;
+    problemDifficultyDisplay.className = 'difficulty ' + currentProblem.difficulty.toLowerCase();
+    problemDifficultyDisplay.style.display = 'inline-block';
+  } else if (problemDifficultyDisplay) {
+    problemDifficultyDisplay.style.display = 'none';
+  }
+  if (problemPlatformDisplay) {
+    problemPlatformDisplay.textContent = currentProblem.platform || '';
+  }
+}
+
+function restoreModeDisplay(mode) {
+  const modeDisplay = document.getElementById('modeDisplay');
+  if (!modeDisplay) return;
+  if (mode === 'partner') {
+    modeDisplay.textContent = '💡 Partner Mode';
+    modeDisplay.style.background = 'linear-gradient(135deg, var(--primary-from) 0%, var(--primary-to) 100%)';
+  } else if (mode === 'reviewer') {
+    modeDisplay.textContent = '🎯 Reviewer Mode';
+    modeDisplay.style.background = 'linear-gradient(135deg, #312e81 0%, #4338ca 100%)';
+  }
+}
+
+function rebuildChatUI() {
+  if (!chatMessages) return;
+  chatMessages.innerHTML = '';
+  chatHistory.forEach(msg => {
+    if (msg.role === 'user') {
+      addUserMessage(msg.content, false);
+    } else {
+      addAIMessage(msg.content, false);
+    }
+  });
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
