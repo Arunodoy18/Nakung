@@ -56,6 +56,11 @@ async function init() {
           sendMessage();
         }
       });
+      // Auto-grow textarea as user types
+      userInput.addEventListener('input', () => {
+        userInput.style.height = 'auto';
+        userInput.style.height = Math.min(userInput.scrollHeight, 80) + 'px';
+      });
     }
     
     // Keyboard accessibility — Escape returns to mode selection
@@ -393,10 +398,11 @@ async function sendMessage() {
   
   try {
     isWaitingForResponse = true;
-    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = ''; }
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.4'; }
     
     addUserMessage(message);
     userInput.value = '';
+    userInput.style.height = 'auto';
     
     chatHistory.push({ role: 'user', content: message });
     await saveState();
@@ -441,7 +447,7 @@ async function sendMessage() {
     addAIMessage('❌ Connection error. Please check:\n\n• Internet connection\n• Backend status\n• Try refreshing the page\n\nError: ' + error.message);
   } finally {
     isWaitingForResponse = false;
-    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
     if (userInput) userInput.focus();
   }
 }
