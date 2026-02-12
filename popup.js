@@ -536,7 +536,7 @@ function updateProblemUI() {
   }
   if (problemDifficultyDisplay && currentProblem.difficulty && currentProblem.difficulty !== 'Unknown') {
     problemDifficultyDisplay.textContent = currentProblem.difficulty;
-    problemDifficultyDisplay.className = 'difficulty ' + currentProblem.difficulty.toLowerCase();
+    problemDifficultyDisplay.className = 'difficulty-badge ' + currentProblem.difficulty.toLowerCase();
     problemDifficultyDisplay.style.display = 'inline-block';
   } else if (problemDifficultyDisplay) {
     problemDifficultyDisplay.style.display = 'none';
