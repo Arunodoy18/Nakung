@@ -3,6 +3,15 @@
 // Backend: https://nakung-backend.vercel.app/api/chat
 // ============================================================================
 
+// Helper: check if extension context is still valid
+function isContextValid() {
+  try {
+    return !!(chrome && chrome.runtime && chrome.runtime.id);
+  } catch (e) {
+    return false;
+  }
+}
+
 // Global state  
 let currentProblem = null;
 let currentMode = null;
@@ -75,6 +84,7 @@ async function init() {
     window.addEventListener('online', () => showToast('Back online!', 'success'));
     
     // Pre-check: if state exists, skip loading flash entirely
+    if (!isContextValid()) return;
     const preCheck = await chrome.storage.local.get(['currentMode', 'chatHistory', 'currentProblem']);
     if (preCheck.currentMode && preCheck.currentProblem) {
       _isRestoringState = true;
@@ -164,6 +174,7 @@ async function loadProblem() {
     currentProblem = null;
     
     // Fetch FRESH data from chrome.storage
+    if (!isContextValid()) return;
     const result = await chrome.storage.local.get(['currentProblem', 'lastUpdated']);
     
     if (result.currentProblem) {
@@ -195,6 +206,7 @@ async function loadProblem() {
 
 async function restoreState() {
   try {
+    if (!isContextValid()) return;
     const result = await chrome.storage.local.get([
       'currentMode',
       'chatHistory',
@@ -249,6 +261,7 @@ async function saveState() {
   // Debounce to prevent storage race conditions on rapid messages
   clearTimeout(_saveDebounce);
   _saveDebounce = setTimeout(async () => {
+    if (!isContextValid()) return;
     try {
       await chrome.storage.local.set({
         currentMode,
@@ -268,7 +281,7 @@ async function clearState() {
   if (chatMessages) {
     chatMessages.innerHTML = '';
   }
-  await chrome.storage.local.remove(['currentMode', 'chatHistory', 'lastProblemId']);
+  if (isContextValid()) await chrome.storage.local.remove(['currentMode', 'chatHistory', 'lastProblemId']);
   aiService.clearHistory();
 }
 
@@ -285,7 +298,7 @@ function selectMode(mode) {
   
   // Save mode + remember as preferred for future sessions
   saveState();
-  chrome.storage.local.set({ preferredMode: mode });
+  if (isContextValid()) chrome.storage.local.set({ preferredMode: mode });
 }
 
 function showWelcomeMessage(mode) {

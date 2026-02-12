@@ -7,6 +7,15 @@
   
   console.log('[Nakung] Loaded on:', window.location.hostname);
 
+  // Helper: check if extension context is still valid (prevents "Extension context invalidated" errors)
+  function isContextValid() {
+    try {
+      return !!(chrome && chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  }
+
   let lastUrl = location.href;
   let lastProblemId = null;
   let extractionTimeout = null;
@@ -59,7 +68,9 @@
       lastProblemId = null; // ← CRITICAL FIX: Reset tracking variable
       
       console.log('[Nakung Content] 🗑️ Clearing old data...');
-      chrome.storage.local.remove(['currentProblem', 'chatHistory', 'currentMode', 'lastProblemId'], () => {});
+      if (isContextValid()) {
+        chrome.storage.local.remove(['currentProblem', 'chatHistory', 'currentMode', 'lastProblemId'], () => {});
+      }
       
       // Debounce extraction to avoid multiple triggers
       if (extractionTimeout) {
@@ -280,6 +291,11 @@
   function storeProblem(problemInfo) {
     console.log('[Nakung Content] 💾 Storing:', problemInfo.title, '|', problemInfo.platform);
     
+    if (!isContextValid()) {
+      console.warn('[Nakung Content] ⚠️ Extension context invalidated, skipping store');
+      return;
+    }
+
     // ALWAYS store - no duplicate checking
     // This ensures fresh data ALWAYS overwrites any cached data
     chrome.storage.local.set({
@@ -288,6 +304,7 @@
       lastUpdated: Date.now(),
       extractionSuccessful: true
     }, () => {
+      if (!isContextValid()) return;
       if (chrome.runtime.lastError) {
         console.error('[Nakung Content] ❌ Storage error:', chrome.runtime.lastError);
       } else {
@@ -310,6 +327,7 @@
 
   function storeFallback() {
     console.log('[Nakung Content] 💾 Storing fallback problem data...');
+    if (!isContextValid()) return;
     chrome.storage.local.set({
       currentProblem: {
         id: 'unknown',
@@ -568,6 +586,7 @@
   // ── Disabled State Check ──
   async function checkDisabledState() {
     return new Promise(resolve => {
+      if (!isContextValid()) return resolve(false);
       chrome.storage.local.get(['nakungDisabledUntil', 'nakungDisabledSites'], result => {
         const now = Date.now();
         const domain = window.location.hostname;
@@ -578,14 +597,14 @@
           // Auto-re-enable after expiration
           const remaining = result.nakungDisabledUntil - now;
           setTimeout(() => {
-            chrome.storage.local.remove('nakungDisabledUntil', () => {
+            if (isContextValid()) chrome.storage.local.remove('nakungDisabledUntil', () => {
               showButton();
             });
           }, remaining);
           return resolve(true);
         } else if (result.nakungDisabledUntil) {
           // Timer expired, clean up
-          chrome.storage.local.remove('nakungDisabledUntil');
+          if (isContextValid()) chrome.storage.local.remove('nakungDisabledUntil');
         }
 
         // Check site-level disable
@@ -634,6 +653,7 @@
 
   // ── Ready Ring ──
   function setupReadyRing() {
+    if (!isContextValid()) return;
     chrome.storage.local.get('extractionSuccessful', result => {
       if (result.extractionSuccessful && floatingBtn) {
         // Create ready ring element
@@ -757,6 +777,7 @@
 
     switch (action) {
       case 'disable-24h':
+        if (!isContextValid()) break;
         chrome.storage.local.set({ nakungDisabledUntil: Date.now() + 86400000 }, () => {
           hideButton();
           showNotification('Nakung disabled for 24 hours');
@@ -764,6 +785,7 @@
         break;
 
       case 'disable-site':
+        if (!isContextValid()) break;
         chrome.storage.local.get('nakungDisabledSites', result => {
           const sites = result.nakungDisabledSites || [];
           const domain = window.location.hostname;

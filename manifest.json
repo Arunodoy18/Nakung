@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Nakung AI Assistant",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "AI coding mentor for LeetCode, CodeChef, HackerRank - Partner & Reviewer modes",
   
   "action": {
