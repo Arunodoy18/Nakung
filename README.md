@@ -25,7 +25,7 @@
   - **🎯 Reviewer Mode**: FAANG-level technical interviewer who challenges your thinking
 
 ### 🎨 **Modern UI/UX**
-- **Leeco.ai Inspired Design**: Purple gradient theme with smooth animations
+- ** Inspired Design**: Purple gradient theme with smooth animations
 - **Dark Mode Optimized**: Perfectly styled for LeetCode's dark theme
 - **Auto Problem Detection**: Instantly recognizes the problem you're solving
 - **Conversation History**: Maintains context throughout your coding session
