@@ -19,12 +19,14 @@ let chatHistory = [];
 let isWaitingForResponse = false;
 let messageCount = 0; // Track for reward feedback
 let _isRestoringState = false; // Prevents flash during restore
+let sessionStartTime = Date.now();
 
 // DOM elements
 let initialView, chatView, loadingScreen;
-let partnerBtn, reviewerBtn, backBtn, sendBtn, clearBtn;
+let partnerBtn, reviewerBtn, backBtn, sendBtn, clearBtn, exportBtn, statsBtn;
 let chatMessages, userInput;
 let problemTitleDisplay, problemDifficultyDisplay, problemPlatformDisplay;
+let offlineIndicator, queueCount, statsModal, closeStatsBtn;
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', init);
@@ -43,6 +45,8 @@ async function init() {
     backBtn = document.getElementById('backBtn');
     sendBtn = document.getElementById('sendBtn');
     clearBtn = document.getElementById('clearBtn');
+    exportBtn = document.getElementById('exportBtn');
+    statsBtn = document.getElementById('statsBtn');
     
     chatMessages = document.getElementById('chatMessages');
     userInput = document.getElementById('userInput');
@@ -51,12 +55,20 @@ async function init() {
     problemDifficultyDisplay = document.getElementById('problemDifficultyDisplay');
     problemPlatformDisplay = document.getElementById('problemPlatformDisplay');
     
+    offlineIndicator = document.getElementById('offlineIndicator');
+    queueCount = document.getElementById('queueCount');
+    statsModal = document.getElementById('statsModal');
+    closeStatsBtn = document.getElementById('closeStatsBtn');
+    
     // Set up event listeners
     if (partnerBtn) partnerBtn.addEventListener('click', () => selectMode('partner'));
     if (reviewerBtn) reviewerBtn.addEventListener('click', () => selectMode('reviewer'));
     if (backBtn) backBtn.addEventListener('click', backToModeSelection);
     if (sendBtn) sendBtn.addEventListener('click', sendMessage);
-    if (clearBtn) clearBtn.addEventListener('click', clearChat);
+    if (clearBtn) clearBtn.addEventListener('click', confirmClearChat);
+    if (exportBtn) exportBtn.addEventListener('click', exportChat);
+    if (statsBtn) statsBtn.addEventListener('click', showStatistics);
+    if (closeStatsBtn) closeStatsBtn.addEventListener('click', hideStatistics);
     
     if (userInput) {
       userInput.addEventListener('keypress', (e) => {
@@ -72,16 +84,24 @@ async function init() {
       });
     }
     
-    // Keyboard accessibility — Escape returns to mode selection
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && chatView && !chatView.classList.contains('hidden')) {
-        backToModeSelection();
-      }
-    });
+    // Set up keyboard shortcuts
+    setupKeyboardShortcuts();
+    
+    // Set up code copy functionality
+    document.addEventListener('click', handleCopyCode);
 
     // Offline/online detection
-    window.addEventListener('offline', () => showToast('You\'re offline', 'warning'));
-    window.addEventListener('online', () => showToast('Back online!', 'success'));
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    
+    // Initialize utilities
+    await statsTracker.load();
+    await offlineQueue.loadFromStorage();
+    
+    // Process any queued messages
+    if (navigator.onLine && offlineQueue.getSize() > 0) {
+      processOfflineQueue();
+    }
     
     // Pre-check: if state exists, skip loading flash entirely
     if (!isContextValid()) return;
@@ -296,6 +316,14 @@ function selectMode(mode) {
   showChatView();
   showWelcomeMessage(mode);
   
+  // Track mode selection in statistics
+  statsTracker.trackMode(mode);
+  
+  // Track problem if available
+  if (currentProblem) {
+    statsTracker.trackProblem(currentProblem.platform, currentProblem.difficulty);
+  }
+  
   // Save mode + remember as preferred for future sessions
   saveState();
   if (isContextValid()) chrome.storage.local.set({ preferredMode: mode });
@@ -409,6 +437,18 @@ async function sendMessage() {
     hasDescription: !!currentProblem.description
   });
   
+  // Handle offline mode
+  if (!navigator.onLine) {
+    await offlineQueue.add(message, { mode: currentMode, problem: currentProblem });
+    updateQueueCount();
+    addUserMessage(message);
+    userInput.value = '';
+    userInput.style.height = 'auto';
+    showToast('Queued (offline)', 'warning');
+    if (offlineIndicator) offlineIndicator.classList.remove('hidden');
+    return;
+  }
+  
   try {
     isWaitingForResponse = true;
     if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.4'; }
@@ -423,12 +463,36 @@ async function sendMessage() {
     const typingIndicator = showTypingIndicator();
     
     console.log('[Nakung Popup] 🚀 Calling AI service with problem context...');
-    const response = await aiService.generateResponse(message, currentMode, currentProblem);
+    
+    // Check for cached response first
+    const cached = responseCache.get(message, currentProblem.id, currentMode);
+    if (cached) {
+      typingIndicator.remove();
+      responseCache.set(message, currentProblem.id, currentMode, cached);
+      addAIMessage(cached);
+      chatHistory.push({ role: 'assistant', content: cached });
+      await saveState();
+      showToast('From cache (instant!)', 'info');
+      
+      isWaitingForResponse = false;
+      if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+      if (userInput) userInput.focus();
+      return;
+    }
+    
+    // Use exponential backoff for retries
+    const response = await exponentialBackoff.execute(async () => {
+      return await aiService.generateResponse(message, currentMode, currentProblem);
+    });
+    
     console.log('[Nakung Popup] 📨 AI response received:', response.success ? '✅ Success' : '❌ Failed');
     
     typingIndicator.remove();
     
     if (response.success) {
+      // Cache the successful response
+      responseCache.set(message, currentProblem.id, currentMode, response.text);
+      
       addAIMessage(response.text);
       chatHistory.push({ role: 'assistant', content: response.text });
       await saveState();
@@ -462,44 +526,6 @@ async function sendMessage() {
     isWaitingForResponse = false;
     if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
     if (userInput) userInput.focus();
-  }
-}
-
-function addUserMessage(text, scrollToBottom = true) {
-  if (!chatMessages) return;
-  const msgDiv = document.createElement('div');
-  msgDiv.className = 'message user';
-  msgDiv.innerHTML = `
-    <div class="message-header"> You</div>
-    <div class="message-content">${escapeHtml(text)}</div>
-  `;
-  chatMessages.appendChild(msgDiv);
-  
-  if (scrollToBottom) smartScroll();
-}
-
-function addAIMessage(text, scrollToBottom = true) {
-  if (!chatMessages) return;
-  const modeName = currentMode === 'partner' ? 'Partner' : 'Reviewer';
-  
-  const msgDiv = document.createElement('div');
-  msgDiv.className = 'message ai';
-  msgDiv.innerHTML = `
-    <div class="message-header">${modeName}</div>
-    <div class="message-content">${escapeHtml(text)}</div>
-  `;
-  chatMessages.appendChild(msgDiv);
-  
-  if (scrollToBottom) smartScroll();
-}
-
-// Smart scroll — only auto-scroll if user is near the bottom (not reading old messages)
-function smartScroll() {
-  if (!chatMessages) return;
-  const threshold = 80; // px from bottom
-  const isNearBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
-  if (isNearBottom) {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 }
 
@@ -583,4 +609,253 @@ function rebuildChatUI() {
   });
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
+// ============================================================================
+// NEW ENHANCED FEATURES
+// ============================================================================
+
+// Keyboard Shortcuts
+function setupKeyboardShortcuts() {
+  keyboardShortcuts.register('k', () => {
+    if (userInput && chatView && !chatView.classList.contains('hidden')) {
+      userInput.focus();
+    }
+  }, { ctrl: true });
+
+  keyboardShortcuts.register('l', () => {
+    if (chatView && !chatView.classList.contains('hidden')) {
+      confirmClearChat();
+    }
+  }, { ctrl: true });
+
+  keyboardShortcuts.register('e', () => {
+    if (chatView && !chatView.classList.contains('hidden')) {
+      exportChat();
+    }
+  }, { ctrl: true });
+
+  keyboardShortcuts.register('i', () => {
+    if (chatView && !chatView.classList.contains('hidden')) {
+      showStatistics();
+    }
+  }, { ctrl: true });
+
+  keyboardShortcuts.register('escape', () => {
+    if (!statsModal?.classList.contains('hidden')) {
+      hideStatistics();
+    } else if (chatView && !chatView.classList.contains('hidden')) {
+      backToModeSelection();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => keyboardShortcuts.handleKeyDown(e));
+}
+
+// Smart scroll — only auto-scroll if user is near the bottom (not reading old messages)
+function smartScroll() {
+  if (!chatMessages) return;
+  const threshold = 80; // px from bottom
+  const isNearBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+  if (isNearBottom) {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+}
+
+// Enhanced message functions with code highlighting
+function addUserMessage(text, scrollToBottom = true) {
+  if (!chatMessages) return;
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message user';
+  msgDiv.innerHTML = `
+    <div class="message-header">You</div>
+    <div class="message-content">${escapeHtml(text)}</div>
+    <div class="message-timestamp">${timestamp}</div>
+  `;
+  chatMessages.appendChild(msgDiv);
+  
+  if (scrollToBottom) smartScroll();
+}
+
+function addAIMessage(text, scrollToBottom = true) {
+  if (!chatMessages) return;
+  const modeName = currentMode === 'partner' ? 'Partner' : 'Reviewer';
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  
+  // Process message with code highlighting
+  const processedContent = MessageFormatter.enhanceMessage(text);
+  
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message ai';
+  msgDiv.innerHTML = `
+    <div class="message-header">${modeName}</div>
+    <div class="message-content">${processedContent}</div>
+    <div class="message-timestamp">${timestamp}</div>
+  `;
+  chatMessages.appendChild(msgDiv);
+  
+  if (scrollToBottom) smartScroll();
+  
+  // Track statistics
+  statsTracker.trackMessage();
+}
+
+// Copy code button handler
+function handleCopyCode(e) {
+  if (e.target.classList.contains('copy-code-btn')) {
+    const codeBlock = e.target.closest('.code-block');
+    const code = codeBlock.querySelector('code').textContent;
+    
+    navigator.clipboard.writeText(code).then(() => {
+      e.target.textContent = '✓ Copied';
+      e.target.classList.add('copied');
+      setTimeout(() => {
+        e.target.textContent = '📋';
+        e.target.classList.remove('copied');
+      }, 2000);
+    }).catch(() => {
+      showToast('Failed to copy', 'error');
+    });
+  }
+}
+
+// Export chat functionality
+function exportChat() {
+  if (!currentProblem || chatHistory.length === 0) {
+    showToast('No chat to export', 'warning');
+    return;
+  }
+
+  const markdown = ChatExporter.exportAsMarkdown(chatHistory, currentProblem, currentMode);
+  const filename = `nakung-chat-${currentProblem.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.md`;
+  
+  ChatExporter.download(markdown, filename);
+  showToast('Chat exported!', 'success');
+  
+  // Track export
+  statsTracker.trackMessage();
+}
+
+// Statistics functionality
+function showStatistics() {
+  if (!statsModal) return;
+  
+  const stats = statsTracker.getStats();
+  const statsContent = document.getElementById('statsContent');
+  
+  if (statsContent) {
+    const sessionMinutes = Math.round((Date.now() - sessionStartTime) / 60000);
+    const totalMinutes = Math.round(stats.sessionTime / 60);
+    
+    statsContent.innerHTML = `
+      <div class="stat-card">
+        <span class="stat-icon">📝</span>
+        <div class="stat-label">Problems Attempted</div>
+        <div class="stat-value">${stats.totalProblems}</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">💬</span>
+        <div class="stat-label">Total Messages</div>
+        <div class="stat-value">${stats.totalMessages}</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">💡</span>
+        <div class="stat-label">Hints Requested</div>
+        <div class="stat-value">${stats.totalHints}</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⏱️</span>
+        <div class="stat-label">This Session</div>
+        <div class="stat-value">${sessionMinutes}m</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🤝</span>
+        <div class="stat-label">Partner Mode</div>
+        <div class="stat-value">${stats.modeUsage.partner}</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🎯</span>
+        <div class="stat-label">Reviewer Mode</div>
+        <div class="stat-value">${stats.modeUsage.reviewer}</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🟢</span>
+        <div class="stat-label">Easy Problems</div>
+        <div class="stat-value">${stats.difficultyUsage.easy || 0}</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🟡</span>
+        <div class="stat-label">Medium Problems</div>
+        <div class="stat-value">${stats.difficultyUsage.medium || 0}</div>
+      </div>
+    `;
+  }
+  
+  statsModal.classList.remove('hidden');
+}
+
+function hideStatistics() {
+  if (statsModal) {
+    statsModal.classList.add('hidden');
+  }
+}
+
+// Confirm before clearing
+function confirmClearChat() {
+  if (chatHistory.length === 0) {
+    showToast('Chat is already empty', 'info');
+    return;
+  }
+  
+  if (confirm('Clear entire chat history? This cannot be undone.')) {
+    clearChat();
+    showToast('Chat cleared', 'success');
+  }
+}
+
+// Offline handling
+function handleOffline() {
+  showToast('You\'re offline', 'warning');
+  if (offlineIndicator) {
+    offlineIndicator.classList.remove('hidden');
+  }
+}
+
+function handleOnline() {
+  showToast('Back online!', 'success');
+  if (offlineIndicator) {
+    offlineIndicator.classList.add('hidden');
+  }
+  
+  // Process queued messages
+  if (offlineQueue.getSize() > 0) {
+    processOfflineQueue();
+  }
+}
+
+function updateQueueCount() {
+  if (queueCount) {
+    queueCount.textContent = offlineQueue.getSize();
+  }
+}
+
+async function processOfflineQueue() {
+  await offlineQueue.process(async (message, metadata) => {
+    // Re-send the message
+    await aiService.generateResponse(message, metadata.mode, metadata.problem);
+  });
+  
+  updateQueueCount();
+  
+  if (offlineQueue.getSize() === 0 && offlineIndicator) {
+    offlineIndicator.classList.add('hidden');
+  }
+}
+
+// Track session time on unload
+window.addEventListener('beforeunload', () => {
+  const sessionSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
+  statsTracker.trackSessionTime(sessionSeconds);
+});
 

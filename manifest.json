@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Nakung AI Assistant",
-  "version": "2.4.2",
-  "description": "AI coding mentor for LeetCode, CodeChef, HackerRank - Partner & Reviewer modes",
+  "version": "3.0.0",
+  "description": "AI coding mentor for LeetCode, CodeChef, HackerRank - Partner & Reviewer modes with advanced features",
   
   "action": {
     "default_popup": "popup.html",
@@ -56,7 +56,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["popup.html", "popup.css", "popup.js", "ai-service.js", "config.js", "icons/*"],
+      "resources": ["popup.html", "popup.css", "popup.js", "ai-service.js", "config.js", "utils.js", "icons/*"],
       "matches": [
         "https://leetcode.com/*",
         "https://www.leetcode.com/*",

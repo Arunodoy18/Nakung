@@ -10,6 +10,8 @@ class AIService {
     this.backendUrl = CONFIG.BACKEND.url;
     this.lastRequestTime = 0;
     this.isOffline = false;
+    this.requestCount = 0;
+    this.errorCount = 0;
   }
 
   // ── Micro delay for human-like pacing ──
@@ -30,11 +32,37 @@ class AIService {
     }
     this.lastRequestTime = Date.now();
   }
+  
+  // ── Context window management ──
+  // Intelligently trim conversation history to fit context window
+  _optimizeHistory() {
+    if (this.conversationHistory.length <= this.maxHistoryLength * 2) {
+      return this.conversationHistory;
+    }
+    
+    // Keep first message (often contains important context)
+    // Keep recent messages (most relevant)
+    // Summarize or skip middle messages
+    const recentMessages = this.conversationHistory.slice(-this.maxHistoryLength);
+    const firstFew = this.conversationHistory.slice(0, 2);
+    
+    return [...firstFew, ...recentMessages];
+  }
+  
+  // ── Memory management ──
+  // Periodically clear old history to prevent memory issues
+  _cleanupHistory() {
+    if (this.conversationHistory.length > 50) {
+      console.log('[AI Service] 🧹 Cleaning up old history...');
+      this.conversationHistory = this.conversationHistory.slice(-30);
+    }
+  }
 
   // Generate AI response by calling backend
   async generateResponse(userMessage, mode = 'partner', problemContext = null) {
     // Check offline
     if (!navigator.onLine) {
+      this.isOffline = true;
       return {
         success: false,
         error: 'offline',
@@ -42,14 +70,22 @@ class AIService {
       };
     }
 
+    this.isOffline = false;
+
     // Rate limit
     await this._waitForRateLimit();
+    
+    // Cleanup old history
+    this._cleanupHistory();
 
     try {
+      this.requestCount++;
+      
       // Build messages array for backend
       const messages = this.buildMessages(userMessage, mode, problemContext);
       
       console.log('[AI Service] 📤 Messages:', messages.length, '| Backend:', this.backendUrl);
+      console.log('[AI Service] 📊 Request #', this.requestCount, '| Errors:', this.errorCount);
 
       // Call backend API with safe timeout
       const controller = new AbortController();
@@ -73,6 +109,7 @@ class AIService {
       }
 
       if (!response.ok) {
+        this.errorCount++;
         const errorText = await response.text().catch(() => 'Unknown error');
         console.error('[AI Service] ❌ Backend error:', response.status, errorText);
         throw new Error(`Backend error: ${response.status}`);
@@ -83,11 +120,13 @@ class AIService {
       try {
         data = await response.json();
       } catch (parseErr) {
+        this.errorCount++;
         console.error('[AI Service] ❌ JSON parse failed:', parseErr);
         throw new Error('Invalid response from backend');
       }
 
       if (!data.success || !data.message) {
+        this.errorCount++;
         throw new Error('Invalid response format from backend');
       }
 
@@ -105,7 +144,7 @@ class AIService {
 
       // Trim history — keep recent context with memory weighting
       if (this.conversationHistory.length > this.maxHistoryLength * 2) {
-        this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength * 2);
+        this.conversationHistory = this._optimizeHistory();
       }
 
       return {
@@ -115,19 +154,28 @@ class AIService {
       };
 
     } catch (error) {
+      this.errorCount++;
       console.error('[AI Service] ❌ Error:', error.message);
       
       const isTimeout = error.name === 'AbortError';
       const isNetwork = error.message?.includes('fetch') || error.message?.includes('network');
       
+      // Provide contextual error messages
+      let errorText;
+      if (isTimeout) {
+        errorText = "The request took too long. The backend might be cold-starting — try again in a moment.";
+      } else if (isNetwork) {
+        errorText = "Can't reach the server. Check your internet connection and try again.";
+      } else if (this.errorCount > 3) {
+        errorText = "Multiple errors detected. Please check your connection and try reloading the extension.";
+      } else {
+        errorText = this.getFallbackResponse(mode);
+      }
+      
       return {
         success: false,
         error: error.message,
-        text: isTimeout 
-          ? "The request took too long. The backend might be cold-starting — try again in a moment."
-          : isNetwork
-          ? "Can't reach the server. Check your internet connection and try again."
-          : this.getFallbackResponse(mode)
+        text: errorText
       };
     }
   }
@@ -147,10 +195,10 @@ class AIService {
         systemPrompt += `\n\n=== CURRENT PROBLEM CONTEXT ===\nProblem Title: ${problemContext.title || 'Unknown'}\nPlatform: ${problemContext.platform || 'Unknown'}\nDifficulty: ${problemContext.difficulty || 'Unknown'}`;
         
         if (problemContext.description) {
-          // Truncate description to avoid token limits
-          const descPreview = problemContext.description.substring(0, 800);
-          systemPrompt += `\nDescription: ${descPreview}${problemContext.description.length > 800 ? '...' : ''}`;
-          console.log('[AI Service] 📄 Description length:', problemContext.description.length, 'chars (truncated to 800)');
+          // Truncate description to avoid token limits (optimized)
+          const descPreview = problemContext.description.substring(0, 600);
+          systemPrompt += `\nDescription: ${descPreview}${problemContext.description.length > 600 ? '...' : ''}`;
+          console.log('[AI Service] 📄 Description length:', problemContext.description.length, 'chars (truncated to 600)');
         } else {
           console.log('[AI Service] ⚠️ No description in problem context');
         }
@@ -165,8 +213,9 @@ class AIService {
       });
     }
 
-    // Add recent conversation history (last 4 exchanges)
-    const recentHistory = this.conversationHistory.slice(-8);
+    // Add optimized conversation history (last 6 exchanges max)
+    const optimizedHistory = this._optimizeHistory();
+    const recentHistory = optimizedHistory.slice(-12); // Last 6 exchanges
     messages.push(...recentHistory);
 
     // Add current user message
@@ -175,6 +224,7 @@ class AIService {
       content: userMessage
     });
 
+    console.log('[AI Service] 📊 Total messages in context:', messages.length);
     return messages;
   }
 

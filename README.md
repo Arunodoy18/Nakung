@@ -5,7 +5,7 @@
 **A revolutionary Chrome extension that transforms LeetCode into an AI-powered learning platform**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/Arunodoy18/Nakung)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/Arunodoy18/Nakung)
 [![Chrome Extension](https://img.shields.io/badge/chrome-extension-brightgreen.svg)](https://chrome.google.com/webstore)
 
 [Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Backend](#-backend-deployment) • [Documentation](#-documentation)
@@ -19,7 +19,7 @@
 ### 🤖 **Embedded AI Assistant**
 - **Floating Button**: Beautiful 🚀 AI button that slides in from the right on any LeetCode problem page
 - **Side Panel Chat**: Sleek embedded chat interface - no popup needed!
-- **Real-time AI**: Powered by **Llama 3.1 8B Instant** via Groq API
+- **Real-time AI**: Powered by **Llama 3.3 70B Versatile** via Groq API
 - **Two Interaction Modes**:
   - **🤝 Partner Mode**: Friendly coding mentor who guides you with Socratic questions
   - **🎯 Reviewer Mode**: FAANG-level technical interviewer who challenges your thinking
@@ -29,10 +29,33 @@
 - **Dark Mode Optimized**: Perfectly styled for LeetCode's dark theme
 - **Auto Problem Detection**: Instantly recognizes the problem you're solving
 - **Conversation History**: Maintains context throughout your coding session
-- **Theme Toggle**: Switch between light/dark modes
+- **Message Timestamps**: See when each message was sent
+- **Code Syntax Highlighting**: Beautiful syntax highlighting for code blocks
+- **Copy Code Button**: One-click copy for code snippets
+
+### 🚀 **Advanced Features (NEW in v3.0)**
+- **⌨️ Keyboard Shortcuts**:
+  - `Ctrl+K` - Focus input
+  - `Ctrl+L` - Clear chat
+  - `Ctrl+E` - Export chat
+  - `Ctrl+I` - View statistics
+  - `Escape` - Back/Close modals
+- **📥 Export Chat**: Download conversations as Markdown for later review
+- **📊 Statistics Dashboard**: Track your learning progress
+  - Problems attempted
+  - Messages sent
+  - Hints requested
+  - Session time
+  - Mode preferences
+- **💾 Response Caching**: Instant responses for repeated questions
+- **📡 Offline Support**: Queue messages when offline, auto-send when back online
+- **🔄 Smart Retry**: Exponential backoff for failed requests
+- **🧠 Memory Management**: Optimized context window management
+- **♿ Accessibility**: Full keyboard navigation and screen reader support
 
 ### 🔗 **Multi-Platform Support**
 - ✅ LeetCode (leetcode.com)
+- ✅ CodeChef (codechef.com)
 - ✅ Codeforces (codeforces.com)
 - ✅ HackerRank (hackerrank.com)
 - 🚧 More platforms coming soon!
@@ -41,7 +64,8 @@
 - **Auto Problem Extraction**: Reads problem title, difficulty, description automatically
 - **Context-Aware Responses**: AI knows exactly what problem you're working on
 - **Conversation Persistence**: Save and restore chat history
-- **Settings Panel**: Configure API keys, themes, and preferences
+- **Intelligent Caching**: Fast responses for common queries
+- **Error Recovery**: Robust error handling with automatic retries
 
 ---
 
